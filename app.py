@@ -151,6 +151,7 @@ st.markdown(
 
 
 # ---------------------- Session helpers ---------------------- #
+
 def get_app_state_keys():
     """Return the keys we consider part of the 'clean app state'."""
     keys = []
@@ -312,6 +313,16 @@ with tabs[0]:
             key="fx_rate",
         )
 
+# Global default ad spend
+default_ad_spend = st.number_input(
+    "Default ad spend ($) for all days",
+    min_value=0.0,
+    step=1.0,
+    key="default_ad_spend",
+    value=st.session_state.get("default_ad_spend", 64.0)
+)
+
+
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
     # Inputs per day
@@ -322,14 +333,20 @@ with tabs[0]:
 
         st.markdown(f"### Day {day_index + 1}: {day_label}")
 
-        # Ad spend for this day
-        ad_spend_key = f"ad_spend_day_{day_index}"
+       # Use per‑day value if it exists, otherwise use global default
+        default_for_day = st.session_state.get(
+        ad_spend_key,
+        st.session_state.get("default_ad_spend", 64.0)
+        )
+
         ad_spend = st.number_input(
             f"Ad spend ($) for {day_label}",
             min_value=0.0,
             step=1.0,
+            value=default_for_day,
             key=ad_spend_key,
         )
+
 
         # Orders expander
         orders_key = f"orders_day_{day_index}"
