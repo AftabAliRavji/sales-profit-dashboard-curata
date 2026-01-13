@@ -6,54 +6,108 @@ import requests
 st.set_page_config(page_title="Curata.shop Dashboard", page_icon="📊", layout="centered")
 
 st.markdown("""
-    <style>
-        .main { background-color: #050505; color: #f5f5f5; }
-        .block-container { padding-top: 1rem; padding-bottom: 2rem; }
-        .curata-header {
-            text-align: center;
-            padding: 10px 0 18px 0;
-            border-bottom: 1px solid #333333;
-        }
-        .curata-title {
-            font-size: 26px;
-            font-weight: 700;
-            color: #ffffff;
-        }
-        .curata-tagline {
-            font-size: 14px;
-            color: #bbbbbb;
-            margin-top: -4px;
-        }
-        h2, h3, h4 { color: #ffffff !important; }
-        .stMetric {
-            background-color: #121212 !important;
-            border-radius: 10px;
-            padding: 6px !important;
-        }
-        .curata-divider {
-            margin: 15px 0;
-            border-top: 1px solid #262626;
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0.3rem;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background-color: #121212;
-            padding: 6px 12px;
-            border-radius: 20px;
-            color: #cccccc;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #1f6feb !important;
-            color: #ffffff !important;
-        }
-        .stDataFrame, .stTable {
-            color: #e5e5e5;
-        }
-        .stSlider, .stNumberInput, .stDateInput, .stTextInput {
-            color: #e5e5e5;
-        }
-    </style>
+ <style>
+    /* Global background + text */
+    .main {
+        background-color: #0d0d0d !important;
+        color: #ffffff !important;
+    }
+
+    /* Container spacing */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+    }
+
+    /* Header */
+    .curata-header {
+        text-align: center;
+        padding: 12px 0 20px 0;
+        border-bottom: 1px solid #333333;
+    }
+    .curata-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #ffffff !important;
+    }
+    .curata-tagline {
+        font-size: 15px;
+        color: #e0e0e0 !important;
+    }
+
+    /* Headings */
+    h1, h2, h3, h4, h5 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* Metrics */
+    .stMetric {
+        background-color: #1a1a1a !important;
+        border-radius: 12px !important;
+        padding: 10px !important;
+        color: #ffffff !important;
+    }
+
+    /* Dividers */
+    .curata-divider {
+        margin: 18px 0;
+        border-top: 1px solid #2e2e2e;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.4rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1a1a1a !important;
+        padding: 8px 14px !important;
+        border-radius: 20px !important;
+        color: #cccccc !important;
+        font-weight: 600 !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* Expanders */
+    .streamlit-expanderHeader {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+    .streamlit-expanderContent {
+        background-color: #111111 !important;
+        color: #ffffff !important;
+    }
+
+    /* Inputs (number, text, date, slider) */
+    input, textarea, select {
+        background-color: #1a1a1a !important;
+        color: #ffffff !important;
+        border: 1px solid #333333 !important;
+        font-weight: 600 !important;
+    }
+
+    /* Dataframes */
+    .stDataFrame, .stTable {
+        color: #ffffff !important;
+    }
+
+    /* Buttons */
+    .stButton>button {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
+        padding: 8px 14px !important;
+        border: none !important;
+    }
+    .stButton>button:hover {
+        background-color: #1d4ed8 !important;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
