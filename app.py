@@ -72,20 +72,45 @@ start_date = st.date_input("Select Start Date")
 for i in range(int(days)):
     init_day_state(i)
 
+# --------------------------
+# USD → GBP Live Conversion (Fetched Once)
+# --------------------------
+st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+st.subheader("💱 Live Currency Conversion (USD → GBP)")
+
+def get_live_rate():
+    try:
+        response = requests.get(
+            "https://api.exchangerate.host/latest?base=USD&symbols=GBP"
+        )
+        data = response.json()
+        return data["rates"]["GBP"]
+    except Exception:
+        return None
+
+live_rate = get_live_rate()
+
+if live_rate:
+    st.success(f"Live USD → GBP Rate: {live_rate:.4f}")
+else:
+    st.error("Unable to fetch live rate. Using fallback rate 0.79.")
+    live_rate = 0.79
+
+# --------------------------
+# Daily Inputs & Summaries
+# --------------------------
 order_values_daily = []
 order_profits_daily = []
 ad_spend_daily = []
 dates_labels = []
 dates_dt = []
 profit_after_ads_daily = []
+profit_after_ads_gbp_daily = []
 percent_profit_daily = []
 
 st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 st.subheader("📝 Daily Inputs")
 
-# --------------------------
-# Per-Day Orders (Collapsible) + Daily Totals
-# --------------------------
 for i in range(int(days)):
     current_date = start_date + timedelta(days=i)
     weekday = current_date.strftime("%A")
@@ -94,6 +119,7 @@ for i in range(int(days)):
     key_orders = f"orders_day_{i}"
     num_orders = st.session_state[key_orders]
 
+    # Collapsible orders section
     with st.expander(f"Orders for {date_label}", expanded=False):
         st.write(f"Enter each order's sales and profit for {date_label}:")
         day_sales = 0.0
@@ -143,6 +169,9 @@ for i in range(int(days)):
     else:
         percent_profit = 0.0
 
+    # Daily GBP conversion
+    profit_after_ads_gbp = profit_after_ads * live_rate
+
     # Show daily summary
     st.markdown(f"### 📌 Daily Summary — {date_label}")
     col_a, col_b = st.columns(2)
@@ -153,6 +182,9 @@ for i in range(int(days)):
     col_c.metric("Daily Ad Spend", f"${ad_spend:,.2f}")
     col_d.metric("Daily Profit After Ads", f"${profit_after_ads:,.2f}")
 
+    col_e, _ = st.columns(2)
+    col_e.metric("Daily Profit After Ads (Converted to £)", f"£{profit_after_ads_gbp:,.2f}")
+
     st.metric("Daily Percentage Profit", f"{percent_profit:.2f}%")
 
     # Collect for overall analysis
@@ -162,6 +194,7 @@ for i in range(int(days)):
     dates_labels.append(date_label)
     dates_dt.append(current_date)
     profit_after_ads_daily.append(profit_after_ads)
+    profit_after_ads_gbp_daily.append(profit_after_ads_gbp)
     percent_profit_daily.append(percent_profit)
 
 # Daily DataFrame (core dataset)
@@ -172,6 +205,7 @@ df = pd.DataFrame({
     "Profit ($)": order_profits_daily,
     "Ad Spend ($)": ad_spend_daily,
     "Profit After Ads ($)": profit_after_ads_daily,
+    "Profit After Ads (£)": profit_after_ads_gbp_daily,
     "Profit %": percent_profit_daily
 })
 
@@ -185,6 +219,7 @@ total_sales = df["Sales ($)"].sum()
 total_profit = df["Profit ($)"].sum()
 total_ad_spend = df["Ad Spend ($)"].sum()
 total_profit_after_ads = df["Profit After Ads ($)"].sum()
+total_profit_after_ads_gbp = df["Profit After Ads (£)"].sum()
 
 col1, col2 = st.columns(2)
 col1.metric("Total Sales", f"${total_sales:,.2f}")
@@ -211,29 +246,15 @@ else:
 st.metric("ROAS", f"{roas:.2f}x")
 
 # --------------------------
-# USD → GBP Live Conversion
+# Overall USD → GBP Conversion (Total)
 # --------------------------
 st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-st.subheader("💱 Live Currency Conversion (USD → GBP)")
+st.subheader("💷 Total Profit After Ads (USD → GBP)")
 
-def get_live_rate():
-    try:
-        response = requests.get("https://api.exchangerate.host/latest?base=USD&symbols=GBP")
-        data = response.json()
-        return data["rates"]["GBP"]
-    except:
-        return None
-
-live_rate = get_live_rate()
-
-if live_rate:
-    st.success(f"Live USD → GBP Rate: {live_rate:.4f}")
-else:
-    st.error("Unable to fetch live rate. Using fallback rate 0.79.")
-    live_rate = 0.79
-
-converted_profit_total = total_profit_after_ads * live_rate
-st.metric("Total Profit After Ads (Converted to £)", f"£{converted_profit_total:,.2f}")
+st.metric(
+    "Total Profit After Ads (Converted to £)",
+    f"£{total_profit_after_ads_gbp:,.2f}"
+)
 
 # --------------------------
 # Dashboard Section
@@ -249,12 +270,20 @@ st.line_chart(df.set_index("Date")["Profit ($)"])
 
 st.markdown("### 📋 Daily Breakdown")
 st.dataframe(
-    df[["Date", "Sales ($)", "Profit ($)", "Ad Spend ($)", "Profit After Ads ($)", "Profit %"]]
-    .style.format({
+    df[[
+        "Date",
+        "Sales ($)",
+        "Profit ($)",
+        "Ad Spend ($)",
+        "Profit After Ads ($)",
+        "Profit After Ads (£)",
+        "Profit %"
+    ]].style.format({
         "Sales ($)": "${:,.2f}",
         "Profit ($)": "${:,.2f}",
         "Ad Spend ($)": "${:,.2f}",
         "Profit After Ads ($)": "${:,.2f}",
+        "Profit After Ads (£)": "£{:,.2f}",
         "Profit %": "{:.2f}%"
     })
 )
@@ -266,6 +295,7 @@ st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 st.subheader("📅 Weekly Summary")
 
 df_summary = df.copy()
+df_summary["Date_dt"] = pd.to_datetime(df_summary["Date_dt"])
 df_summary["Week"] = df_summary["Date_dt"].dt.isocalendar().week
 df_summary["Month"] = df_summary["Date_dt"].dt.month
 df_summary["Year"] = df_summary["Date_dt"].dt.year
@@ -275,18 +305,18 @@ weekly = df_summary.groupby("Week").agg({
     "Sales ($)": "sum",
     "Profit ($)": "sum",
     "Ad Spend ($)": "sum",
-    "Profit After Ads ($)": "sum"
+    "Profit After Ads ($)": "sum",
+    "Profit After Ads (£)": "sum"
 }).reset_index()
 
 weekly["Profit %"] = (weekly["Profit ($)"] / weekly["Sales ($)"] * 100).fillna(0)
-weekly["Profit (£)"] = weekly["Profit After Ads ($)"] * live_rate
 
 st.dataframe(weekly.style.format({
     "Sales ($)": "${:,.2f}",
     "Profit ($)": "${:,.2f}",
     "Ad Spend ($)": "${:,.2f}",
     "Profit After Ads ($)": "${:,.2f}",
-    "Profit (£)": "£{:,.2f}",
+    "Profit After Ads (£)": "£{:,.2f}",
     "Profit %": "{:.2f}%"
 }))
 
@@ -298,18 +328,18 @@ monthly = df_summary.groupby("Month").agg({
     "Sales ($)": "sum",
     "Profit ($)": "sum",
     "Ad Spend ($)": "sum",
-    "Profit After Ads ($)": "sum"
+    "Profit After Ads ($)": "sum",
+    "Profit After Ads (£)": "sum"
 }).reset_index()
 
 monthly["Profit %"] = (monthly["Profit ($)"] / monthly["Sales ($)"] * 100).fillna(0)
-monthly["Profit (£)"] = monthly["Profit After Ads ($)"] * live_rate
 
 st.dataframe(monthly.style.format({
     "Sales ($)": "${:,.2f}",
     "Profit ($)": "${:,.2f}",
     "Ad Spend ($)": "${:,.2f}",
     "Profit After Ads ($)": "${:,.2f}",
-    "Profit (£)": "£{:,.2f}",
+    "Profit After Ads (£)": "£{:,.2f}",
     "Profit %": "{:.2f}%"
 }))
 
@@ -321,18 +351,18 @@ yearly = df_summary.groupby("Year").agg({
     "Sales ($)": "sum",
     "Profit ($)": "sum",
     "Ad Spend ($)": "sum",
-    "Profit After Ads ($)": "sum"
+    "Profit After Ads ($)": "sum",
+    "Profit After Ads (£)": "sum"
 }).reset_index()
 
 yearly["Profit %"] = (yearly["Profit ($)"] / yearly["Sales ($)"] * 100).fillna(0)
-yearly["Profit (£)"] = yearly["Profit After Ads ($)"] * live_rate
 
 st.dataframe(yearly.style.format({
     "Sales ($)": "${:,.2f}",
     "Profit ($)": "${:,.2f}",
     "Ad Spend ($)": "${:,.2f}",
     "Profit After Ads ($)": "${:,.2f}",
-    "Profit (£)": "£{:,.2f}",
+    "Profit After Ads (£)": "£{:,.2f}",
     "Profit %": "{:.2f}%"
 }))
 
@@ -343,7 +373,13 @@ st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 st.subheader("📤 Export Data")
 
 csv = df[[
-    "Date", "Sales ($)", "Profit ($)", "Ad Spend ($)", "Profit After Ads ($)", "Profit %"
+    "Date",
+    "Sales ($)",
+    "Profit ($)",
+    "Ad Spend ($)",
+    "Profit After Ads ($)",
+    "Profit After Ads (£)",
+    "Profit %"
 ]].to_csv(index=False).encode("utf-8")
 
 st.download_button(
