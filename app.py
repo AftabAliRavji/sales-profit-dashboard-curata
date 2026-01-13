@@ -145,13 +145,12 @@ for i in range(int(days)):
             day_profit += profit
 
         add_order = st.button(
-    f"➕ Add Order for {date_label}",
-    key=f"add_order_day_{i}"
-    )
-     if add_order:
-     st.session_state[key_orders] += 1
-     st.experimental_rerun()
-
+            f"➕ Add Order for {date_label}",
+            key=f"add_order_day_{i}"
+        )
+        if add_order:
+            st.session_state[key_orders] += 1
+            st.experimental_rerun()
 
     # Daily ad spend (default 64)
     ad_spend = st.number_input(
