@@ -1,11 +1,21 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
-import requests
+from datetime import date, timedelta
+import json
+import os
 
-st.set_page_config(page_title="Curata.shop Dashboard", page_icon="📊", layout="centered")
+SESSION_FILE = "curata_session.json"
 
-st.markdown("""
+# ---------------------- Page config ---------------------- #
+st.set_page_config(
+    page_title="Curata Daily Performance Dashboard",
+    layout="wide",
+)
+
+
+# ---------------------- Styling (dark mode + mobile) ---------------------- #
+st.markdown(
+    """
 <style>
     /* Global app background + text */
     .main, .block-container {
@@ -38,7 +48,7 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Metrics (the little KPI cards) */
+    /* Metrics (KPI cards) */
     [data-testid="stMetric"], .stMetric {
         background-color: #1a1a1a !important;
         border-radius: 10px !important;
@@ -80,7 +90,7 @@ st.markdown("""
         background-color: #111111 !important;
     }
 
-    /* Inputs (number, text, date) */
+    /* Inputs (number, text, date, selects, sliders) */
     input, textarea, select {
         background-color: #1a1a1a !important;
         color: #ffffff !important;
@@ -88,7 +98,27 @@ st.markdown("""
         font-weight: 500 !important;
     }
 
-    /* Dataframes / tables */
+    /* Explicit widget labels to bright white + bold */
+    .stTextInput label,
+    .stNumberInput label,
+    .stDateInput label,
+    .stSelectbox label,
+    .stSlider label,
+    .stMultiSelect label,
+    .stRadio label,
+    .stCheckbox label,
+    .stTextArea label {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* Some internal label classes (for safety across layouts) */
+    .css-1p3j8v5, .css-16idsys, .css-1kyxreq {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* Tables */
     .stDataFrame, .stTable {
         color: #ffffff !important;
     }
@@ -105,287 +135,498 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #1d4ed8 !important;
     }
-    /* Force all widget labels to be bright white and bold */ .stTextInput label, .stNumberInput label, .stDateInput label, .stSelectbox label, .stSlider label, .stMultiSelect label, .stRadio label, .stCheckbox label, .stTextArea label { color: #ffffff !important; font-weight: 700 !important; } /* Also fix labels inside columns and expanders */ .css-1p3j8v5, .css-16idsys, .css-1kyxreq { color: #ffffff !important; font-weight: 700 !important; }
+
+    @media (max-width: 768px) {
+        .curata-title {
+            font-size: 22px;
+        }
+        .curata-tagline {
+            font-size: 13px;
+        }
+    }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-st.markdown("""
-    <div class="curata-header">
-        <div class="curata-title">Curata.shop Dashboard</div>
-        <div class="curata-tagline">Daily Sales • Profit • Performance</div>
-    </div>
-""", unsafe_allow_html=True)
 
-if "initialized_days" not in st.session_state:
-    st.session_state.initialized_days = 0
+# ---------------------- Session helpers ---------------------- #
+def get_app_state_keys():
+    """Return the keys we consider part of the 'clean app state'."""
+    keys = []
+    for k in st.session_state.keys():
+        if (
+            k.startswith("orders_day_")
+            or k.startswith("day_")
+            or k.startswith("ad_spend_day_")
+            or k in ["days", "start_date", "fx_rate"]
+        ):
+            keys.append(k)
+    return keys
+
+
+def export_session_state_dict():
+    """Export only clean app-related keys as a dict."""
+    data = {}
+    for k in get_app_state_keys():
+        v = st.session_state.get(k)
+        if isinstance(v, (pd.Timestamp,)):
+            data[k] = v.isoformat()
+        elif isinstance(v, (date,)):
+            data[k] = v.isoformat()
+        else:
+            data[k] = v
+    return data
+
+
+def save_session_to_file():
+    """Save session state to a local JSON file (best effort, may not persist on Streamlit Cloud)."""
+    data = export_session_state_dict()
+    try:
+        with open(SESSION_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        st.warning(f"Could not save session to file: {e}")
+
+
+def load_session_from_file():
+    """Load session state from the local JSON file if it exists."""
+    if not os.path.exists(SESSION_FILE):
+        st.warning("No saved session found on the server (file missing).")
+        return
+    try:
+        with open(SESSION_FILE, "r") as f:
+            data = json.load(f)
+        for k, v in data.items():
+            if k == "start_date":
+                try:
+                    st.session_state[k] = pd.to_datetime(v).date()
+                except Exception:
+                    st.session_state[k] = v
+            else:
+                st.session_state[k] = v
+        st.success("Session loaded from file. Rerunning app...")
+        st.experimental_rerun()
+    except Exception as e:
+        st.warning(f"Could not load session from file: {e}")
+
+
+def load_session_from_uploaded_json(uploaded_file):
+    """Load session state from an uploaded JSON backup."""
+    try:
+        data = json.load(uploaded_file)
+    except Exception:
+        st.warning("Invalid JSON file. Please upload a valid backup.")
+        return
+
+    if not isinstance(data, dict):
+        st.warning("Uploaded JSON does not look like a valid session backup.")
+        return
+
+    try:
+        for k, v in data.items():
+            if k == "start_date":
+                try:
+                    st.session_state[k] = pd.to_datetime(v).date()
+                except Exception:
+                    st.session_state[k] = v
+            else:
+                st.session_state[k] = v
+        st.success("Session loaded from uploaded JSON. Rerunning app...")
+        st.experimental_rerun()
+    except Exception as e:
+        st.warning(f"Could not apply uploaded session: {e}")
+
+
+def init_default_state():
+    """Initialize core defaults if not present."""
+    if "days" not in st.session_state:
+        st.session_state["days"] = 7
+    if "start_date" not in st.session_state:
+        st.session_state["start_date"] = date.today()
+    if "fx_rate" not in st.session_state:
+        st.session_state["fx_rate"] = 0.79  # default USD->GBP rate
+
 
 def init_day_state(day_index: int):
     key_orders = f"orders_day_{day_index}"
     if key_orders not in st.session_state:
         st.session_state[key_orders] = 1
 
-tabs = st.tabs(["Inputs & FX", "KPIs & Charts", "Summaries", "Export"])
 
+# ---------------------- App header ---------------------- #
+init_default_state()
+
+st.markdown(
+    """
+<div class="curata-header">
+    <div class="curata-title">Curata Daily Performance Dashboard</div>
+    <div class="curata-tagline">
+        Track daily sales, profit, ad spend and margins with quick export and restore options.
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+
+# ---------------------- Tabs ---------------------- #
+tabs = st.tabs(
+    [
+        "Inputs",
+        "KPIs",
+        "Summaries",
+        "Export",
+        "Session JSON",
+    ]
+)
+
+daily_rows = []  # will hold daily calculations; stored in session for use in other tabs
+
+
+# ---------------------- Tab 1: Inputs ---------------------- #
 with tabs[0]:
-    st.subheader("📅 Date range")
-    days = st.number_input("Number of days", min_value=1, step=1)
-    start_date = st.date_input("Select start date")
+    st.subheader("📥 Inputs")
 
-    for i in range(int(days)):
-        init_day_state(i)
+    col_a, col_b, col_c = st.columns([1, 1, 1])
+    with col_a:
+        days = st.number_input(
+            "Number of days",
+            min_value=1,
+            max_value=31,
+            step=1,
+            key="days",
+        )
+    with col_b:
+        start_date = st.date_input(
+            "Select start date",
+            key="start_date",
+        )
+    with col_c:
+        fx_rate = st.number_input(
+            "FX rate (USD → GBP)",
+            min_value=0.0,
+            step=0.01,
+            key="fx_rate",
+        )
 
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.subheader("💱 Live FX (USD → GBP)")
 
-    def get_live_rate():
-        try:
-            r = requests.get("https://api.exchangerate.host/latest?base=USD&symbols=GBP")
-            d = r.json()
-            return d["rates"]["GBP"]
-        except Exception:
-            return None
+    # Inputs per day
+    for day_index in range(int(days)):
+        init_day_state(day_index)
+        day_date = start_date + timedelta(days=day_index)
+        day_label = day_date.strftime("%A — %d %b %Y")
 
-    live_rate = get_live_rate()
-    if live_rate:
-        st.success(f"Live USD → GBP Rate: {live_rate:.4f}")
-    else:
-        st.error("Unable to fetch live rate. Using fallback rate 0.79.")
-        live_rate = 0.79
+        st.markdown(f"### Day {day_index + 1}: {day_label}")
 
-    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.subheader("📝 Daily inputs")
+        # Ad spend for this day
+        ad_spend_key = f"ad_spend_day_{day_index}"
+        ad_spend = st.number_input(
+            f"Ad spend ($) for {day_label}",
+            min_value=0.0,
+            step=1.0,
+            key=ad_spend_key,
+        )
 
-    order_values_daily = []
-    order_profits_daily = []
-    ad_spend_daily = []
-    dates_labels = []
-    dates_dt = []
-    profit_after_ads_daily = []
-    profit_after_ads_gbp_daily = []
-    percent_profit_daily = []
+        # Orders expander
+        orders_key = f"orders_day_{day_index}"
+        current_orders = st.session_state[orders_key]
 
-    for i in range(int(days)):
-        current_date = start_date + timedelta(days=i)
-        weekday = current_date.strftime("%A")
-        date_label = f"{weekday} — {current_date.strftime('%d %b %Y')}"
-        key_orders = f"orders_day_{i}"
+        with st.expander(f"Orders for {day_label} (Total: {current_orders})", expanded=False):
+            c1, c2, c3 = st.columns([1, 1, 1])
+            with c1:
+                if st.button(f"➕ Add order (Day {day_index + 1})"):
+                    st.session_state[orders_key] += 1
+                    st.experimental_rerun()
+            with c2:
+                if st.button(f"➖ Remove last order (Day {day_index + 1})"):
+                    if st.session_state[orders_key] > 1:
+                        st.session_state[orders_key] -= 1
+                        st.experimental_rerun()
+            with c3:
+                st.write("")
 
-        with st.expander(f"Orders for {date_label}", expanded=False):
-            st.write(f"Enter each order's sales and profit for {date_label}:")
-            add_order = st.button(f"➕ Add order for {date_label}", key=f"add_order_day_{i}")
-            if add_order:
-                st.session_state[key_orders] += 1
-
-            num_orders = st.session_state[key_orders]
             day_sales = 0.0
             day_profit = 0.0
 
-            for j in range(num_orders):
-                c1, c2 = st.columns(2)
-                with c1:
-                    sales = st.number_input(
-                        f"Order {j+1} sales ($) — {date_label}",
-                        min_value=0.0,
-                        step=0.01,
-                        key=f"day_{i}_order_{j}_sales"
-                    )
-                with c2:
-                    profit = st.number_input(
-                        f"Order {j+1} profit ($) — {date_label}",
-                        min_value=0.0,
-                        step=0.01,
-                        key=f"day_{i}_order_{j}_profit"
-                    )
-                day_sales += sales
-                day_profit += profit
+            for order_index in range(1, st.session_state[orders_key] + 1):
+                st.markdown(f"**Order {order_index}**")
+                col1, col2 = st.columns(2)
 
-        ad_spend = st.number_input(
-            f"Ad spend ($) for {date_label}",
-            min_value=0.0,
-            step=0.01,
-            value=64.00,
-            key=f"ad_spend_day_{i}"
+                sales_key = f"day_{day_index}_order_{order_index}_sales"
+                profit_key = f"day_{day_index}_order_{order_index}_profit"
+
+                with col1:
+                    sales_val = st.number_input(
+                        f"Sales ($) — Order {order_index}",
+                        min_value=0.0,
+                        step=1.0,
+                        key=sales_key,
+                    )
+                with col2:
+                    profit_val = st.number_input(
+                        f"Profit ($) — Order {order_index}",
+                        min_value=0.0,
+                        step=1.0,
+                        key=profit_key,
+                    )
+
+                day_sales += sales_val
+                day_profit += profit_val
+
+        # Calculations for the day
+        profit_after_ads = day_profit - ad_spend
+        profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
+        # Corrected formula: (profit - ad_spend) / total sales * 100
+        percent_profit = ((day_profit - ad_spend) / day_sales * 100) if day_sales > 0 else 0.0
+
+        daily_rows.append(
+            {
+                "Date": day_date,
+                "Sales ($)": round(day_sales, 2),
+                "Profit ($)": round(day_profit, 2),
+                "Ad Spend ($)": round(ad_spend, 2),
+                "Profit After Ads ($)": round(profit_after_ads, 2),
+                "Profit After Ads (£)": round(profit_after_ads_gbp, 2),
+                "Profit %": round(percent_profit, 2),
+            }
         )
 
-        profit_after_ads = day_profit - ad_spend
-        percent_profit = (day_profit / day_sales * 100) if day_sales > 0 else 0.0
-        profit_after_ads_gbp = profit_after_ads * live_rate
+    # Build daily dataframe and store in session for other tabs
+    if daily_rows:
+        df = pd.DataFrame(daily_rows)
+    else:
+        df = pd.DataFrame(
+            columns=[
+                "Date",
+                "Sales ($)",
+                "Profit ($)",
+                "Ad Spend ($)",
+                "Profit After Ads ($)",
+                "Profit After Ads (£)",
+                "Profit %",
+            ]
+        )
 
-        st.markdown(f"#### 📌 Daily summary — {date_label}")
-        ca, cb = st.columns(2)
-        ca.metric("Daily total sales", f"${day_sales:,.2f}")
-        cb.metric("Daily total profit", f"${day_profit:,.2f}")
+    st.session_state["daily_df"] = df
 
-        cc, cd = st.columns(2)
-        cc.metric("Daily ad spend", f"${ad_spend:,.2f}")
-        cd.metric("Daily profit after ads", f"${profit_after_ads:,.2f}")
+    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+    st.subheader("📅 Daily overview (table)")
+    st.dataframe(df, use_container_width=True)
 
-        ce, _ = st.columns(2)
-        ce.metric("Daily profit after ads (£)", f"£{profit_after_ads_gbp:,.2f}")
-        st.metric("Daily percentage profit", f"{percent_profit:.2f}%")
 
-        order_values_daily.append(day_sales)
-        order_profits_daily.append(day_profit)
-        ad_spend_daily.append(ad_spend)
-        dates_labels.append(date_label)
-        dates_dt.append(current_date)
-        profit_after_ads_daily.append(profit_after_ads)
-        profit_after_ads_gbp_daily.append(profit_after_ads_gbp)
-        percent_profit_daily.append(percent_profit)
-
-df = pd.DataFrame({
-    "Date": dates_labels,
-    "Date_dt": dates_dt,
-    "Sales ($)": order_values_daily,
-    "Profit ($)": order_profits_daily,
-    "Ad Spend ($)": ad_spend_daily,
-    "Profit After Ads ($)": profit_after_ads_daily,
-    "Profit After Ads (£)": profit_after_ads_gbp_daily,
-    "Profit %": percent_profit_daily
-})
+# ---------------------- Tab 2: KPIs ---------------------- #
 with tabs[1]:
-    st.subheader("📌 Overall KPIs")
+    st.subheader("📊 KPIs")
 
-    total_sales = df["Sales ($)"].sum()
-    total_profit = df["Profit ($)"].sum()
-    total_ad_spend = df["Ad Spend ($)"].sum()
-    total_profit_after_ads = df["Profit After Ads ($)"].sum()
-    total_profit_after_ads_gbp = df["Profit After Ads (£)"].sum()
+    df = st.session_state.get("daily_df", pd.DataFrame())
+    if df.empty:
+        st.info("No data yet. Fill in the Inputs tab first.")
+    else:
+        total_sales = float(df["Sales ($)"].sum())
+        total_profit = float(df["Profit ($)"].sum())
+        total_ad_spend = float(df["Ad Spend ($)"].sum())
+        total_profit_after_ads = float(df["Profit After Ads ($)"].sum())
+        total_profit_after_ads_gbp = float(df["Profit After Ads (£)"].sum())
 
-    k1, k2 = st.columns(2)
-    k1.metric("Total sales", f"${total_sales:,.2f}")
-    k2.metric("Total profit", f"${total_profit:,.2f}")
+        # Corrected overall profit % = (Profit - Ad Spend) / Sales * 100
+        overall_profit_percent = (
+            (total_profit - total_ad_spend) / total_sales * 100 if total_sales > 0 else 0.0
+        )
 
-    k3, k4 = st.columns(2)
-    k3.metric("Total ad spend", f"${total_ad_spend:,.2f}")
-    k4.metric("Total profit after ads", f"${total_profit_after_ads:,.2f}")
+        roas = total_sales / total_ad_spend if total_ad_spend > 0 else 0.0
 
-    overall_profit_percentage = (total_profit / total_sales * 100) if total_sales > 0 else 0
-    st.metric("Overall profit %", f"{overall_profit_percentage:.2f}%")
+        c1, c2, c3, c4, c5 = st.columns(5)
 
-    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.subheader("📈 ROAS")
+        with c1:
+            st.metric("Total sales ($)", f"${total_sales:,.2f}")
+        with c2:
+            st.metric("Total profit ($)", f"${total_profit:,.2f}")
+        with c3:
+            st.metric("Total ad spend ($)", f"${total_ad_spend:,.2f}")
+        with c4:
+            st.metric("Profit after ads ($)", f"${total_profit_after_ads:,.2f}")
+        with c5:
+            st.metric("Profit after ads (£)", f"£{total_profit_after_ads_gbp:,.2f}")
 
-    roas = (total_sales / total_ad_spend) if total_ad_spend > 0 else 0
-    st.metric("ROAS", f"{roas:.2f}x")
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.subheader("💷 Total profit after ads (USD → GBP)")
-    st.metric("Total profit after ads (£)", f"£{total_profit_after_ads_gbp:,.2f}")
+        c6, c7 = st.columns(2)
+        with c6:
+            st.metric("Overall profit % (after ads)", f"{overall_profit_percent:,.2f}%")
+        with c7:
+            st.metric("ROAS (sales ÷ ad spend)", f"{roas:,.2f}x")
 
-    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.subheader("📊 Charts")
 
-    st.markdown("##### Sales trend")
-    st.line_chart(df.set_index("Date")["Sales ($)"])
-
-    st.markdown("##### Profit trend")
-    st.line_chart(df.set_index("Date")["Profit ($)"])
-
-    st.markdown("##### Daily breakdown")
-    st.dataframe(
-        df[[
-            "Date",
-            "Sales ($)",
-            "Profit ($)",
-            "Ad Spend ($)",
-            "Profit After Ads ($)",
-            "Profit After Ads (£)",
-            "Profit %"
-        ]].style.format({
-            "Sales ($)": "${:,.2f}",
-            "Profit ($)": "${:,.2f}",
-            "Ad Spend ($)": "${:,.2f}",
-            "Profit After Ads ($)": "${:,.2f}",
-            "Profit After Ads (£)": "£{:,.2f}",
-            "Profit %": "{:.2f}%"
-        })
-    )
-
+# ---------------------- Tab 3: Summaries ---------------------- #
 with tabs[2]:
-    st.subheader("📅 Weekly / monthly / yearly summaries")
+    st.subheader("📈 Summaries (weekly, monthly, yearly)")
 
-    df_summary = df.copy()
-    df_summary["Date_dt"] = pd.to_datetime(df_summary["Date_dt"])
-    df_summary["Week"] = df_summary["Date_dt"].dt.isocalendar().week
-    df_summary["Month"] = df_summary["Date_dt"].dt.month
-    df_summary["Year"] = df_summary["Date_dt"].dt.year
+    df = st.session_state.get("daily_df", pd.DataFrame())
+    if df.empty:
+        st.info("No data yet. Fill in the Inputs tab first.")
+    else:
+        df_summary = df.copy()
+        df_summary["Date"] = pd.to_datetime(df_summary["Date"])
 
-    st.markdown("##### Weekly summary")
-    weekly = df_summary.groupby("Week").agg({
-        "Sales ($)": "sum",
-        "Profit ($)": "sum",
-        "Ad Spend ($)": "sum",
-        "Profit After Ads ($)": "sum",
-        "Profit After Ads (£)": "sum"
-    }).reset_index()
-    weekly["Profit %"] = (weekly["Profit ($)"] / weekly["Sales ($)"] * 100).fillna(0)
+        # Weekly summary
+        st.markdown("### Weekly summary")
+        weekly = (
+            df_summary
+            .groupby(df_summary["Date"].dt.to_period("W").apply(lambda r: r.start_time.date()))
+            .agg(
+                {
+                    "Sales ($)": "sum",
+                    "Profit ($)": "sum",
+                    "Ad Spend ($)": "sum",
+                    "Profit After Ads ($)": "sum",
+                    "Profit After Ads (£)": "sum",
+                }
+            )
+            .reset_index()
+            .rename(columns={"Date": "Week starting"})
+        )
 
-    st.dataframe(weekly.style.format({
-        "Sales ($)": "${:,.2f}",
-        "Profit ($)": "${:,.2f}",
-        "Ad Spend ($)": "${:,.2f}",
-        "Profit After Ads ($)": "${:,.2f}",
-        "Profit After Ads (£)": "£{:,.2f}",
-        "Profit %": "{:.2f}%"
-    }))
+        if not weekly.empty:
+            weekly["Profit %"] = (
+                (weekly["Profit ($)"] - weekly["Ad Spend ($)"]) / weekly["Sales ($)"] * 100
+            ).fillna(0)
+            st.dataframe(weekly, use_container_width=True)
+        else:
+            st.write("No weekly data to display.")
 
-    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.markdown("##### Monthly summary")
-    monthly = df_summary.groupby("Month").agg({
-        "Sales ($)": "sum",
-        "Profit ($)": "sum",
-        "Ad Spend ($)": "sum",
-        "Profit After Ads ($)": "sum",
-        "Profit After Ads (£)": "sum"
-    }).reset_index()
-    monthly["Profit %"] = (monthly["Profit ($)"] / monthly["Sales ($)"] * 100).fillna(0)
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-    st.dataframe(monthly.style.format({
-        "Sales ($)": "${:,.2f}",
-        "Profit ($)": "${:,.2f}",
-        "Ad Spend ($)": "${:,.2f}",
-        "Profit After Ads ($)": "${:,.2f}",
-        "Profit After Ads (£)": "£{:,.2f}",
-        "Profit %": "{:.2f}%"
-    }))
+        # Monthly summary
+        st.markdown("### Monthly summary")
+        monthly = (
+            df_summary
+            .groupby(df_summary["Date"].dt.to_period("M"))
+            .agg(
+                {
+                    "Sales ($)": "sum",
+                    "Profit ($)": "sum",
+                    "Ad Spend ($)": "sum",
+                    "Profit After Ads ($)": "sum",
+                    "Profit After Ads (£)": "sum",
+                }
+            )
+            .reset_index()
+        )
+        monthly["Month"] = monthly["Date"].dt.strftime("%Y-%m")
+        monthly = monthly.drop(columns=["Date"])
 
-    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    st.markdown("##### Yearly summary")
-    yearly = df_summary.groupby("Year").agg({
-        "Sales ($)": "sum",
-        "Profit ($)": "sum",
-        "Ad Spend ($)": "sum",
-        "Profit After Ads ($)": "sum",
-        "Profit After Ads (£)": "sum"
-    }).reset_index()
-    yearly["Profit %"] = (yearly["Profit ($)"] / yearly["Sales ($)"] * 100).fillna(0)
+        if not monthly.empty:
+            monthly["Profit %"] = (
+                (monthly["Profit ($)"] - monthly["Ad Spend ($)"]) / monthly["Sales ($)"] * 100
+            ).fillna(0)
+            st.dataframe(monthly, use_container_width=True)
+        else:
+            st.write("No monthly data to display.")
 
-    st.dataframe(yearly.style.format({
-        "Sales ($)": "${:,.2f}",
-        "Profit ($)": "${:,.2f}",
-        "Ad Spend ($)": "${:,.2f}",
-        "Profit After Ads ($)": "${:,.2f}",
-        "Profit After Ads (£)": "£{:,.2f}",
-        "Profit %": "{:.2f}%"
-    }))
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
+        # Yearly summary
+        st.markdown("### Yearly summary")
+        yearly = (
+            df_summary
+            .groupby(df_summary["Date"].dt.year)
+            .agg(
+                {
+                    "Sales ($)": "sum",
+                    "Profit ($)": "sum",
+                    "Ad Spend ($)": "sum",
+                    "Profit After Ads ($)": "sum",
+                    "Profit After Ads (£)": "sum",
+                }
+            )
+            .reset_index()
+            .rename(columns={"Date": "Year"})
+        )
+
+        if not yearly.empty:
+            yearly["Profit %"] = (
+                (yearly["Profit ($)"] - yearly["Ad Spend ($)"]) / yearly["Sales ($)"] * 100
+            ).fillna(0)
+            st.dataframe(yearly, use_container_width=True)
+        else:
+            st.write("No yearly data to display.")
+
+
+# ---------------------- Tab 4: Export ---------------------- #
 with tabs[3]:
     st.subheader("📤 Export")
 
-    csv = df[[
-        "Date",
-        "Sales ($)",
-        "Profit ($)",
-        "Ad Spend ($)",
-        "Profit After Ads ($)",
-        "Profit After Ads (£)",
-        "Profit %"
-    ]].to_csv(index=False).encode("utf-8")
+    df = st.session_state.get("daily_df", pd.DataFrame())
+    if df.empty:
+        st.info("No data yet. Fill in the Inputs tab first.")
+    else:
+        csv = df[
+            [
+                "Date",
+                "Sales ($)",
+                "Profit ($)",
+                "Ad Spend ($)",
+                "Profit After Ads ($)",
+                "Profit After Ads (£)",
+                "Profit %",
+            ]
+        ].to_csv(index=False).encode("utf-8")
 
+        st.download_button(
+            label="Download daily data as CSV",
+            data=csv,
+            file_name="curata_daily_data.csv",
+            mime="text/csv",
+        )
+
+    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+    st.subheader("💾 Session controls")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Save session (to server file)"):
+            save_session_to_file()
+            st.success("Session saved to server file (if environment allows).")
+    with c2:
+        if st.button("Load last session (from server file)"):
+            load_session_from_file()
+
+
+# ---------------------- Tab 5: Session JSON backup ---------------------- #
+with tabs[4]:
+    st.subheader("🧾 Session JSON backup")
+
+    st.markdown("**Live JSON preview (clean app state only)**")
+    session_dict = export_session_state_dict()
+    st.json(session_dict)
+
+    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+    # Download JSON backup
+    json_bytes = json.dumps(session_dict, indent=2, default=str).encode("utf-8")
     st.download_button(
-        label="Download daily data as CSV",
-        data=csv,
-        file_name="curata_daily_data.csv",
-        mime="text/csv"
+        label="Download JSON backup",
+        data=json_bytes,
+        file_name="curata_session_backup.json",
+        mime="application/json",
     )
+
+    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+    # Upload JSON backup and restore
+    uploaded = st.file_uploader("Upload JSON backup to restore session", type="json")
+    if uploaded is not None:
+        if st.button("Restore session from uploaded JSON"):
+            load_session_from_uploaded_json(uploaded)
+
+
+# ---------------------- Autosave on each run ---------------------- #
+# Best-effort autosave: on Streamlit Cloud this persists only while the container lives.
+try:
+    save_session_to_file()
+except Exception:
+    pass
