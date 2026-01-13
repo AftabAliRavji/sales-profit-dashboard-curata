@@ -6,17 +6,16 @@ import requests
 st.set_page_config(page_title="Curata.shop Dashboard", page_icon="📊", layout="centered")
 
 st.markdown("""
- <style>
-    /* Global background + text */
-    .main {
+<style>
+    /* Global app background + text */
+    .main, .block-container {
         background-color: #0d0d0d !important;
         color: #ffffff !important;
     }
 
-    /* Container spacing */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
+    /* Make almost all text white by default */
+    .main * {
+        color: #ffffff !important;
     }
 
     /* Header */
@@ -28,25 +27,26 @@ st.markdown("""
     .curata-title {
         font-size: 28px;
         font-weight: 800;
-        color: #ffffff !important;
     }
     .curata-tagline {
         font-size: 15px;
-        color: #e0e0e0 !important;
+        opacity: 0.85;
     }
 
     /* Headings */
     h1, h2, h3, h4, h5 {
-        color: #ffffff !important;
         font-weight: 700 !important;
     }
 
-    /* Metrics */
-    .stMetric {
+    /* Metrics (the little KPI cards) */
+    [data-testid="stMetric"], .stMetric {
         background-color: #1a1a1a !important;
-        border-radius: 12px !important;
+        border-radius: 10px !important;
         padding: 10px !important;
+    }
+    [data-testid="stMetric"] * {
         color: #ffffff !important;
+        font-weight: 600;
     }
 
     /* Dividers */
@@ -74,23 +74,21 @@ st.markdown("""
 
     /* Expanders */
     .streamlit-expanderHeader {
-        color: #ffffff !important;
         font-weight: 700 !important;
     }
     .streamlit-expanderContent {
         background-color: #111111 !important;
-        color: #ffffff !important;
     }
 
-    /* Inputs (number, text, date, slider) */
+    /* Inputs (number, text, date) */
     input, textarea, select {
         background-color: #1a1a1a !important;
         color: #ffffff !important;
         border: 1px solid #333333 !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
     }
 
-    /* Dataframes */
+    /* Dataframes / tables */
     .stDataFrame, .stTable {
         color: #ffffff !important;
     }
