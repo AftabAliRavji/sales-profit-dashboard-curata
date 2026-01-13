@@ -12,23 +12,17 @@ st.set_page_config(
     layout="wide",
 )
 
-
 # ---------------------- Styling (dark mode + mobile) ---------------------- #
 st.markdown(
     """
 <style>
-    /* Global app background + text */
     .main, .block-container {
         background-color: #0d0d0d !important;
         color: #ffffff !important;
     }
-
-    /* Make almost all text white by default */
     .main * {
         color: #ffffff !important;
     }
-
-    /* Header */
     .curata-header {
         text-align: center;
         padding: 12px 0 20px 0;
@@ -42,13 +36,9 @@ st.markdown(
         font-size: 15px;
         opacity: 0.85;
     }
-
-    /* Headings */
     h1, h2, h3, h4, h5 {
         font-weight: 700 !important;
     }
-
-    /* Metrics (KPI cards) */
     [data-testid="stMetric"], .stMetric {
         background-color: #1a1a1a !important;
         border-radius: 10px !important;
@@ -58,14 +48,10 @@ st.markdown(
         color: #ffffff !important;
         font-weight: 600;
     }
-
-    /* Dividers */
     .curata-divider {
         margin: 18px 0;
         border-top: 1px solid #2e2e2e;
     }
-
-    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.4rem;
     }
@@ -81,24 +67,18 @@ st.markdown(
         color: #ffffff !important;
         font-weight: 700 !important;
     }
-
-    /* Expanders */
     .streamlit-expanderHeader {
         font-weight: 700 !important;
     }
     .streamlit-expanderContent {
         background-color: #111111 !important;
     }
-
-    /* Inputs (number, text, date, selects, sliders) */
     input, textarea, select {
         background-color: #1a1a1a !important;
         color: #ffffff !important;
         border: 1px solid #333333 !important;
         font-weight: 500 !important;
     }
-
-    /* Explicit widget labels to bright white + bold */
     .stTextInput label,
     .stNumberInput label,
     .stDateInput label,
@@ -111,19 +91,13 @@ st.markdown(
         color: #ffffff !important;
         font-weight: 700 !important;
     }
-
-    /* Some internal label classes (for safety across layouts) */
     .css-1p3j8v5, .css-16idsys, .css-1kyxreq {
         color: #ffffff !important;
         font-weight: 700 !important;
     }
-
-    /* Tables */
     .stDataFrame, .stTable {
         color: #ffffff !important;
     }
-
-    /* Buttons */
     .stButton>button {
         background-color: #2563eb !important;
         color: #ffffff !important;
@@ -135,7 +109,6 @@ st.markdown(
     .stButton>button:hover {
         background-color: #1d4ed8 !important;
     }
-
     @media (max-width: 768px) {
         .curata-title {
             font-size: 22px;
@@ -149,25 +122,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ---------------------- Session helpers ---------------------- #
-
 def get_app_state_keys():
-    """Return the keys we consider part of the 'clean app state'."""
     keys = []
     for k in st.session_state.keys():
         if (
             k.startswith("orders_day_")
             or k.startswith("day_")
             or k.startswith("ad_spend_day_")
-            or k in ["days", "start_date", "fx_rate"]
+            or k in ["days", "start_date", "fx_rate", "default_ad_spend"]
         ):
             keys.append(k)
     return keys
 
-
 def export_session_state_dict():
-    """Export only clean app-related keys as a dict."""
     data = {}
     for k in get_app_state_keys():
         v = st.session_state.get(k)
@@ -179,21 +147,17 @@ def export_session_state_dict():
             data[k] = v
     return data
 
-
 def save_session_to_file():
-    """Save session state to a local JSON file (best effort, may not persist on Streamlit Cloud)."""
     data = export_session_state_dict()
     try:
         with open(SESSION_FILE, "w") as f:
             json.dump(data, f)
-    except Exception as e:
-        st.warning(f"Could not save session to file: {e}")
-
+    except Exception:
+        pass
 
 def load_session_from_file():
-    """Load session state from the local JSON file if it exists."""
     if not os.path.exists(SESSION_FILE):
-        st.warning("No saved session found on the server (file missing).")
+        st.warning("No saved session found on the server.")
         return
     try:
         with open(SESSION_FILE, "r") as f:
@@ -206,24 +170,20 @@ def load_session_from_file():
                     st.session_state[k] = v
             else:
                 st.session_state[k] = v
-        st.success("Session loaded from file. Rerunning app...")
+        st.success("Session loaded. Rerunning...")
         st.experimental_rerun()
     except Exception as e:
-        st.warning(f"Could not load session from file: {e}")
-
+        st.warning(f"Could not load session: {e}")
 
 def load_session_from_uploaded_json(uploaded_file):
-    """Load session state from an uploaded JSON backup."""
     try:
         data = json.load(uploaded_file)
     except Exception:
-        st.warning("Invalid JSON file. Please upload a valid backup.")
+        st.warning("Invalid JSON file.")
         return
-
     if not isinstance(data, dict):
-        st.warning("Uploaded JSON does not look like a valid session backup.")
+        st.warning("Uploaded JSON is not a valid session backup.")
         return
-
     try:
         for k, v in data.items():
             if k == "start_date":
@@ -233,27 +193,25 @@ def load_session_from_uploaded_json(uploaded_file):
                     st.session_state[k] = v
             else:
                 st.session_state[k] = v
-        st.success("Session loaded from uploaded JSON. Rerunning app...")
+        st.success("Session restored. Rerunning...")
         st.experimental_rerun()
     except Exception as e:
         st.warning(f"Could not apply uploaded session: {e}")
 
-
 def init_default_state():
-    """Initialize core defaults if not present."""
     if "days" not in st.session_state:
         st.session_state["days"] = 7
     if "start_date" not in st.session_state:
         st.session_state["start_date"] = date.today()
     if "fx_rate" not in st.session_state:
-        st.session_state["fx_rate"] = 0.79  # default USD->GBP rate
-
+        st.session_state["fx_rate"] = 0.79
+    if "default_ad_spend" not in st.session_state:
+        st.session_state["default_ad_spend"] = 64.0
 
 def init_day_state(day_index: int):
     key_orders = f"orders_day_{day_index}"
     if key_orders not in st.session_state:
         st.session_state[key_orders] = 1
-
 
 # ---------------------- App header ---------------------- #
 init_default_state()
@@ -272,7 +230,6 @@ st.markdown(
 
 st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-
 # ---------------------- Tabs ---------------------- #
 tabs = st.tabs(
     [
@@ -284,8 +241,7 @@ tabs = st.tabs(
     ]
 )
 
-daily_rows = []  # will hold daily calculations; stored in session for use in other tabs
-
+daily_rows = []
 
 # ---------------------- Tab 1: Inputs ---------------------- #
 with tabs[0]:
@@ -293,35 +249,20 @@ with tabs[0]:
 
     col_a, col_b, col_c = st.columns([1, 1, 1])
     with col_a:
-        days = st.number_input(
-            "Number of days",
-            min_value=1,
-            max_value=31,
-            step=1,
-            key="days",
-        )
+        days = st.number_input("Number of days", min_value=1, max_value=31, step=1, key="days")
     with col_b:
-        start_date = st.date_input(
-            "Select start date",
-            key="start_date",
-        )
+        start_date = st.date_input("Select start date", key="start_date")
     with col_c:
-        fx_rate = st.number_input(
-            "FX rate (USD → GBP)",
-            min_value=0.0,
-            step=0.01,
-            key="fx_rate",
-        )
+        fx_rate = st.number_input("FX rate (USD → GBP)", min_value=0.0, step=0.01, key="fx_rate")
 
-# Global default ad spend
-default_ad_spend = st.number_input(
-    "Default ad spend ($) for all days",
-    min_value=0.0,
-    step=1.0,
-    key="default_ad_spend",
-    value=st.session_state.get("default_ad_spend", 64.0)
-)
-
+    # Global default ad spend
+    default_ad_spend = st.number_input(
+        "Default ad spend ($) for all days",
+        min_value=0.0,
+        step=1.0,
+        key="default_ad_spend",
+        value=st.session_state.get("default_ad_spend", 64.0)
+    )
 
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
@@ -331,22 +272,29 @@ default_ad_spend = st.number_input(
         day_date = start_date + timedelta(days=day_index)
         day_label = day_date.strftime("%A — %d %b %Y")
 
-        st.markdown(f"### Day {day_index + 1}: {day_label}")
+        ad_spend_key = f"ad_spend_day_{day_index}"
 
-       # Use per‑day value if it exists, otherwise use global default
+        # Determine default vs custom
+        if ad_spend_key in st.session_state:
+            indicator = "(custom)"
+        else:
+            indicator = "(using default)"
+
+        # Determine value to show
         default_for_day = st.session_state.get(
-        ad_spend_key,
-        st.session_state.get("default_ad_spend", 64.0)
+            ad_spend_key,
+            st.session_state.get("default_ad_spend", 64.0)
         )
 
+        st.markdown(f"### Day {day_index + 1}: {day_label}")
+
         ad_spend = st.number_input(
-            f"Ad spend ($) for {day_label}",
+            f"Ad spend ($) for {day_label} {indicator}",
             min_value=0.0,
             step=1.0,
             value=default_for_day,
             key=ad_spend_key,
         )
-
 
         # Orders expander
         orders_key = f"orders_day_{day_index}"
@@ -363,8 +311,6 @@ default_ad_spend = st.number_input(
                     if st.session_state[orders_key] > 1:
                         st.session_state[orders_key] -= 1
                         st.experimental_rerun()
-            with c3:
-                st.write("")
 
             day_sales = 0.0
             day_profit = 0.0
@@ -394,10 +340,9 @@ default_ad_spend = st.number_input(
                 day_sales += sales_val
                 day_profit += profit_val
 
-        # Calculations for the day
+        # Daily calculations
         profit_after_ads = day_profit - ad_spend
         profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
-        # Corrected formula: (profit - ad_spend) / total sales * 100
         percent_profit = ((day_profit - ad_spend) / day_sales * 100) if day_sales > 0 else 0.0
 
         daily_rows.append(
@@ -412,7 +357,7 @@ default_ad_spend = st.number_input(
             }
         )
 
-    # Build daily dataframe and store in session for other tabs
+    # Build daily dataframe
     if daily_rows:
         df = pd.DataFrame(daily_rows)
     else:
@@ -433,8 +378,6 @@ default_ad_spend = st.number_input(
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
     st.subheader("📅 Daily overview (table)")
     st.dataframe(df, use_container_width=True)
-
-
 # ---------------------- Tab 2: KPIs ---------------------- #
 with tabs[1]:
     st.subheader("📊 KPIs")
@@ -449,7 +392,7 @@ with tabs[1]:
         total_profit_after_ads = float(df["Profit After Ads ($)"].sum())
         total_profit_after_ads_gbp = float(df["Profit After Ads (£)"].sum())
 
-        # Corrected overall profit % = (Profit - Ad Spend) / Sales * 100
+        # Overall profit % = (Profit - Ad Spend) / Sales * 100
         overall_profit_percent = (
             (total_profit - total_ad_spend) / total_sales * 100 if total_sales > 0 else 0.0
         )
@@ -457,7 +400,6 @@ with tabs[1]:
         roas = total_sales / total_ad_spend if total_ad_spend > 0 else 0.0
 
         c1, c2, c3, c4, c5 = st.columns(5)
-
         with c1:
             st.metric("Total sales ($)", f"${total_sales:,.2f}")
         with c2:
@@ -642,7 +584,6 @@ with tabs[4]:
 
 
 # ---------------------- Autosave on each run ---------------------- #
-# Best-effort autosave: on Streamlit Cloud this persists only while the container lives.
 try:
     save_session_to_file()
 except Exception:
