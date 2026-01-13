@@ -105,6 +105,7 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #1d4ed8 !important;
     }
+    /* Force all widget labels to be bright white and bold */ .stTextInput label, .stNumberInput label, .stDateInput label, .stSelectbox label, .stSlider label, .stMultiSelect label, .stRadio label, .stCheckbox label, .stTextArea label { color: #ffffff !important; font-weight: 700 !important; } /* Also fix labels inside columns and expanders */ .css-1p3j8v5, .css-16idsys, .css-1kyxreq { color: #ffffff !important; font-weight: 700 !important; }
 </style>
 """, unsafe_allow_html=True)
 
