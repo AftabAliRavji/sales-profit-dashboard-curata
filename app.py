@@ -55,6 +55,10 @@ st.write("")
 if "initialized_days" not in st.session_state:
     st.session_state.initialized_days = 0
 
+if "trigger_rerun" not in st.session_state:
+    st.session_state.trigger_rerun = False
+
+
 def init_day_state(day_index):
     key_orders = f"orders_day_{day_index}"
     if key_orders not in st.session_state:
@@ -150,7 +154,7 @@ for i in range(int(days)):
         )
         if add_order:
             st.session_state[key_orders] += 1
-            st.experimental_rerun()
+            st.session_state.trigger_rerun = True
 
     # Daily ad spend (default 64)
     ad_spend = st.number_input(
@@ -197,6 +201,12 @@ for i in range(int(days)):
     profit_after_ads_daily.append(profit_after_ads)
     profit_after_ads_gbp_daily.append(profit_after_ads_gbp)
     percent_profit_daily.append(percent_profit)
+
+# SAFE RERUN TRIGGER (after daily loop)
+if st.session_state.trigger_rerun:
+    st.session_state.trigger_rerun = False
+    st.experimental_rerun()
+
 
 # Daily DataFrame (core dataset)
 df = pd.DataFrame({
