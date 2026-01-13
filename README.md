@@ -12,3 +12,8 @@ This file contains python code for an app which creates the following -
 11. having yearly average
 12. having charts shown.
 13. CSv exporter.
+14. Cleaned/minified structure
+15. Dark-themed, mobile-friendly styling
+16. Tabs instead of long scroll
+17. All logic from the last version is preserved.
+18. Add order button fixed.
