@@ -99,6 +99,19 @@ st.markdown(
     .streamlit-expanderContent {
         background-color: #111111 !important;
     }
+    /* Expander header when open */
+.streamlit-expanderHeader[aria-expanded="true"] {
+    background-color: #16a34a !important; /* green when open */
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+
+/* Prevent white flash on hover when open */
+.streamlit-expanderHeader[aria-expanded="true"]:hover {
+    background-color: #15803d !important; /* darker green on hover */
+    color: #ffffff !important;
+}
+
 
     /* Inputs */
     input, textarea, select {
