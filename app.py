@@ -4,6 +4,7 @@ from datetime import date, timedelta
 import json
 import os
 import requests
+import plotly.express as px  # NEW: for charts
 
 SESSION_FILE = "curata_session.json"
 
@@ -203,7 +204,7 @@ div.stExpander[data-testid="stExpander"] > details[open] > summary {
 
 /* Expander header hover (open) */
 div.stExpander[data-testid="stExpander"] > details[open] > summary:hover {
-    background-color: #15803d !important;  /* darker green on hover */
+    background-color: #15803d !important;  /* darker green */
 }
 
 /* Expander content background */
@@ -255,7 +256,7 @@ def get_app_state_keys():
             k.startswith("orders_day_")
             or k.startswith("day_")
             or k.startswith("ad_spend_day_")
-            or k in ["days", "start_date", "fx_rate", "default_ad_spend"]
+            or k in ["days", "start_date", "fx_rate", "default_ad_spend", "visitors_per_day"]
         ):
             keys.append(k)
     return keys
@@ -334,6 +335,9 @@ def init_default_state():
         st.session_state["fx_rate"] = live_rate if live_rate is not None else 0.79
     if "default_ad_spend" not in st.session_state:
         st.session_state["default_ad_spend"] = 64.0
+    # NEW: global visitors per day (Option B)
+    if "visitors_per_day" not in st.session_state:
+        st.session_state["visitors_per_day"] = 1
 
 def init_day_state(day_index: int):
     key_orders = f"orders_day_{day_index}"
@@ -386,7 +390,6 @@ def main_app():
                 pass
         st.session_state["session_restored"] = True
 
-
     # Header
     st.markdown(
         """
@@ -413,7 +416,7 @@ def main_app():
         else:
             st.sidebar.warning("Could not fetch live FX rate. Keeping existing value.")
 
-    # Tabs
+    # Tabs (NEW: Session Controls + Summary Charts)
     tabs = st.tabs(
         [
             "Inputs",
@@ -421,6 +424,8 @@ def main_app():
             "Summaries",
             "Export",
             "Session JSON",
+            "Session Controls",
+            "Summary Charts",
         ]
     )
 
@@ -430,7 +435,7 @@ def main_app():
     with tabs[0]:
         st.subheader("📥 Inputs")
 
-        col_a, col_b, col_c = st.columns([1, 1, 1])
+        col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 1])
         with col_a:
             days = st.number_input(
                 "Number of days", min_value=1, max_value=31, step=1, key="days"
@@ -440,6 +445,13 @@ def main_app():
         with col_c:
             fx_rate = st.number_input(
                 "FX rate (USD → GBP)", min_value=0.0, step=0.0001, key="fx_rate"
+            )
+        with col_d:
+            visitors_per_day = st.number_input(
+                "Visitors per day",
+                min_value=1,
+                step=1,
+                key="visitors_per_day",
             )
 
         # Global default ad spend (no explicit value= to avoid Streamlit warning)
@@ -531,6 +543,10 @@ def main_app():
             profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
             percent_profit = ((day_profit - ad_spend) / day_sales * 100) if day_sales > 0 else 0.0
 
+            # Visitors and orders per day (for conversion rate & charts)
+            visitors = st.session_state.get("visitors_per_day", 1)
+            orders_count = current_orders
+
             daily_rows.append(
                 {
                     "Date": day_date,
@@ -540,6 +556,8 @@ def main_app():
                     "Profit After Ads ($)": round(profit_after_ads, 2),
                     "Profit After Ads (£)": round(profit_after_ads_gbp, 2),
                     "Profit %": round(percent_profit, 2),
+                    "Orders": orders_count,
+                    "Visitors": visitors,
                 }
             )
 
@@ -556,6 +574,8 @@ def main_app():
                     "Profit After Ads ($)",
                     "Profit After Ads (£)",
                     "Profit %",
+                    "Orders",
+                    "Visitors",
                 ]
             )
 
@@ -664,113 +684,5 @@ def main_app():
                 monthly["Profit %"] = (
                     (monthly["Profit ($)"] - monthly["Ad Spend ($)"]) / monthly["Sales ($)"] * 100
                 ).fillna(0)
-                st.dataframe(monthly, use_container_width=True)
-            else:
-                st.write("No monthly data to display.")
+           
 
-            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-
-            st.markdown("### Yearly summary")
-            yearly = (
-                df_summary
-                .groupby(df_summary["Date"].dt.year)
-                .agg(
-                    {
-                        "Sales ($)": "sum",
-                        "Profit ($)": "sum",
-                        "Ad Spend ($)": "sum",
-                        "Profit After Ads ($)": "sum",
-                        "Profit After Ads (£)": "sum",
-                    }
-                )
-                .reset_index()
-                .rename(columns={"Date": "Year"})
-            )
-
-            if not yearly.empty:
-                yearly["Profit %"] = (
-                    (yearly["Profit ($)"] - yearly["Ad Spend ($)"]) / yearly["Sales ($)"] * 100
-                ).fillna(0)
-                st.dataframe(yearly, use_container_width=True)
-            else:
-                st.write("No yearly data to display.")
-
-    # ---------------------- Tab 4: Export ---------------------- #
-    with tabs[3]:
-        st.subheader("📤 Export")
-
-        df = st.session_state.get("daily_df", pd.DataFrame())
-        if df.empty:
-            st.info("No data yet. Fill in the Inputs tab first.")
-        else:
-            csv = df[
-                [
-                    "Date",
-                    "Sales ($)",
-                    "Profit ($)",
-                    "Ad Spend ($)",
-                    "Profit After Ads ($)",
-                    "Profit After Ads (£)",
-                    "Profit %",
-                ]
-            ].to_csv(index=False).encode("utf-8")
-
-            st.download_button(
-                label="Download daily data as CSV",
-                data=csv,
-                file_name="curata_daily_data.csv",
-                mime="text/csv",
-            )
-
-        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-        st.subheader("💾 Session controls")
-
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Save session (to server file)"):
-                save_session_to_file()
-                st.success("Session saved to server file (if environment allows).")
-        with c2:
-            if st.button("Load last session (from server file)"):
-                load_session_from_file()
-
-    # ---------------------- Tab 5: Session JSON backup ---------------------- #
-    with tabs[4]:
-        st.subheader("🧾 Session JSON backup")
-
-        st.markdown("**Live JSON preview (clean app state only)**")
-        session_dict = export_session_state_dict()
-        st.json(session_dict)
-
-        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-
-        json_bytes = json.dumps(session_dict, indent=2, default=str).encode("utf-8")
-        st.download_button(
-            label="Download JSON backup",
-            data=json_bytes,
-            file_name="curata_session_backup.json",
-            mime="application/json",
-        )
-
-        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-
-        uploaded = st.file_uploader("Upload JSON backup to restore session", type="json")
-        if uploaded is not None:
-            if st.button("Restore session from uploaded JSON"):
-                load_session_from_uploaded_json(uploaded)
-
-    # ---------------------- Autosave on each run ---------------------- #
-    try:
-        save_session_to_file()
-    except Exception:
-        pass
-
-# ---------------------- App entrypoint with auth ---------------------- #
-init_auth_state()
-
-logout_button()
-
-if not st.session_state["authenticated"]:
-    login_screen()
-else:
-    main_app()
