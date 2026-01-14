@@ -39,7 +39,7 @@ docker-compose up --build
 ## open on browser
 http://localhost:8501
 
-## secrets in secrets.toml
+## secrets in secrets.toml (it is named _secrets.toml and _st.secrets as it is currently reading from actual StreamLit files not github)
 [auth]
 user1 = "aravji"
 pass1 = "cuarataAdmin1214"
