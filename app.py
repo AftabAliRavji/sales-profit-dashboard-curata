@@ -137,6 +137,32 @@ st.markdown(
         background-color: #1d4ed8 !important;
     }
 
+    /* Fix form submit button styling */
+button[type="submit"] {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+}
+
+/* Remove white background from wrapper */
+button[type="submit"] + div {
+    background-color: transparent !important;
+}
+
+/* Remove white background from stButton container */
+.stButton {
+    background-color: transparent !important;
+}
+
+/* Hover state */
+button[type="submit"]:hover {
+    background-color: #1d4ed8 !important;
+}
+
+
     @media (max-width: 768px) {
         .curata-title {
             font-size: 22px;
@@ -218,7 +244,7 @@ def load_session_from_file():
             else:
                 st.session_state[k] = v
         st.success("Session loaded. Rerunning...")
-        st.experimental_rerun()
+        st.rerun()
     except Exception as e:
         st.warning(f"Could not load session: {e}")
 
@@ -241,7 +267,7 @@ def load_session_from_uploaded_json(uploaded_file):
             else:
                 st.session_state[k] = v
         st.success("Session restored. Rerunning...")
-        st.experimental_rerun()
+        st.rerun()
     except Exception as e:
         st.warning(f"Could not apply uploaded session: {e}")
 
@@ -273,24 +299,27 @@ def login_screen():
     st.title("Curata Dashboard Login")
     st.write("Access is restricted. Please log in to continue.")
 
+    # Form so Enter on password submits
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit = st.form_submit_button("Log in")
 
-        if submit:
-            if username in USERS and USERS[username] == password:
-                st.session_state["authenticated"] = True
-                st.session_state["auth_user"] = username
-                st.success(f"Welcome, {username}. Loading dashboard...")
-            else:
-                st.error("Invalid username or password.")
+    # Handle submission after form block
+    if submit:
+        if username in USERS and USERS[username] == password:
+            st.session_state["authenticated"] = True
+            st.session_state["auth_user"] = username
+            st.success(f"Welcome, {username}. Loading dashboard...")
+            st.rerun()
+        else:
+            st.error("Invalid username or password.")
 
 def logout_button():
     if st.sidebar.button("Log out"):
         st.session_state["authenticated"] = False
         st.session_state["auth_user"] = None
-        st.experimental_rerun()
+        st.rerun()
 
 # ---------------------- Main app ---------------------- #
 def main_app():
@@ -314,6 +343,7 @@ def main_app():
     # Logged-in user info + FX refresh in sidebar
     st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('auth_user', 'Unknown')}")
     if st.sidebar.button("Refresh FX rate (USD → GBP)"):
+
         new_rate = fetch_live_fx_rate()
         if new_rate is not None:
             st.session_state["fx_rate"] = new_rate
@@ -399,12 +429,12 @@ def main_app():
                 with c1:
                     if st.button(f"➕ Add order (Day {day_index + 1})"):
                         st.session_state[orders_key] += 1
-                        st.experimental_rerun()
+                        st.rerun()
                 with c2:
                     if st.button(f"➖ Remove last order (Day {day_index + 1})"):
                         if st.session_state[orders_key] > 1:
                             st.session_state[orders_key] -= 1
-                            st.experimental_rerun()
+                            st.rerun()
 
                 day_sales = 0.0
                 day_profit = 0.0
