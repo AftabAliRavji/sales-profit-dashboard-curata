@@ -127,6 +127,39 @@ st.markdown(
             font-size: 13px;
         }
     }
+    /* Fix login form button */
+form button[kind="primary"] {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+}
+form button[kind="primary"]:hover {
+    background-color: #1d4ed8 !important;
+}
+/* Closed expander header */
+.streamlit-expanderHeader {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+}
+
+/* OPEN expander header (highlight in red) */
+.streamlit-expanderHeader[aria-expanded="true"] {
+    background-color: #b91c1c !important; /* deep red */
+    color: #ffffff !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+    font-weight: 800 !important;
+}
+
+/* Expander content background */
+.streamlit-expanderContent {
+    background-color: #111111 !important;
+}
 </style>
 """,
     unsafe_allow_html=True,
