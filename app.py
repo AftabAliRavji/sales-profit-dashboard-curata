@@ -275,10 +275,10 @@ def load_session_from_file():
                     st.session_state[k] = v
             else:
                 st.session_state[k] = v
-        st.success("Session loaded. Rerunning...")
-        st.rerun()
+        st.success("Session loaded.")
     except Exception as e:
         st.warning(f"Could not load session: {e}")
+
 
 def load_session_from_uploaded_json(uploaded_file):
     try:
@@ -357,7 +357,7 @@ def logout_button():
 def main_app():
     init_default_state()
 
-        # Auto-restore session once after login
+    # Auto-restore session once after login
     if "session_restored" not in st.session_state:
         if os.path.exists(SESSION_FILE):
             try:
