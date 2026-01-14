@@ -137,30 +137,32 @@ st.markdown(
         background-color: #1d4ed8 !important;
     }
 
-    /* Fix form submit button styling */
-button[type="submit"] {
+ /* FINAL FIX — Style Streamlit form submit button */
+div.stButton > button[kind="formSubmit"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
     font-weight: 700 !important;
     border-radius: 8px !important;
     padding: 8px 14px !important;
     border: none !important;
+    box-shadow: none !important;
 }
 
-/* Remove white background from wrapper */
-button[type="submit"] + div {
+/* Remove white wrapper div */
+div.stButton > button[kind="formSubmit"] + div {
     background-color: transparent !important;
 }
 
-/* Remove white background from stButton container */
-.stButton {
+/* Remove white background from container */
+div.stButton {
     background-color: transparent !important;
 }
 
 /* Hover state */
-button[type="submit"]:hover {
+div.stButton > button[kind="formSubmit"]:hover {
     background-color: #1d4ed8 !important;
 }
+
 
 
     @media (max-width: 768px) {
