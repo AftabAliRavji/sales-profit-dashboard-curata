@@ -83,7 +83,7 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* Expander styling */
+    /* Expander styling 
     .streamlit-expanderHeader {
         font-weight: 700 !important;
         background-color: #1a1a1a !important;
@@ -99,19 +99,45 @@ st.markdown(
     .streamlit-expanderContent {
         background-color: #111111 !important;
     }
-    /* Expander header when open */
-.streamlit-expanderHeader[aria-expanded="true"] {
-    background-color: #16a34a !important; /* green when open */
+    */
+    /* Expander container */
+details[data-testid="stExpander"] {
+    background-color: #111111 !important;
+    border-radius: 6px !important;
+}
+
+/* Expander header (closed state) */
+details[data-testid="stExpander"] > summary {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+    list-style: none !important;
+}
+
+/* Remove default disclosure triangle bullet */
+details[data-testid="stExpander"] > summary::-webkit-details-marker {
+    display: none !important;
+}
+
+/* Expander header when open */
+details[data-testid="stExpander"][open] > summary {
+    background-color: #16a34a !important;  /* green when open */
     color: #ffffff !important;
     font-weight: 800 !important;
 }
 
-/* Prevent white flash on hover when open */
-.streamlit-expanderHeader[aria-expanded="true"]:hover {
-    background-color: #15803d !important; /* darker green on hover */
+/* Hover when open – prevent white flash */
+details[data-testid="stExpander"][open] > summary:hover {
+    background-color: #15803d !important;  /* darker green on hover */
     color: #ffffff !important;
 }
 
+/* Expander content background */
+details[data-testid="stExpander"] > div {
+    background-color: #111111 !important;
+}
 
     /* Inputs */
     input, textarea, select {
