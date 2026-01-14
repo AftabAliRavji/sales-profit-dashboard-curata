@@ -39,7 +39,13 @@ docker-compose up --build
 ## open on browser
 http://localhost:8501
 
+## secrets in secrets.toml
+[auth]
+user1 = "aravji"
+pass1 = "cuarataAdmin1214"
 
+user2 = "mravji"
+pass2 = "curataAdmin786"
 
 ## old comments - of breakdown od updates in this app
 This file contains python code for an app which creates the following - 
