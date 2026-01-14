@@ -26,182 +26,114 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    .main, .block-container {
-        background-color: #0d0d0d !important;
-        color: #ffffff !important;
-    }
-    .main * {
-        color: #ffffff !important;
-    }
-
-    .curata-header {
-        text-align: center;
-        padding: 12px 0 20px 0;
-        border-bottom: 1px solid #333333;
-    }
-    .curata-title {
-        font-size: 28px;
-        font-weight: 800;
-    }
-    .curata-tagline {
-        font-size: 15px;
-        opacity: 0.85;
-    }
-
-    h1, h2, h3, h4, h5 {
-        font-weight: 700 !important;
-    }
-
-    [data-testid="stMetric"], .stMetric {
-        background-color: #1a1a1a !important;
-        border-radius: 10px !important;
-        padding: 10px !important;
-    }
-    [data-testid="stMetric"] * {
-        color: #ffffff !important;
-        font-weight: 600;
-    }
-
-    .curata-divider {
-        margin: 18px 0;
-        border-top: 1px solid #2e2e2e;
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0.4rem;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #1a1a1a !important;
-        padding: 8px 14px !important;
-        border-radius: 20px !important;
-        color: #cccccc !important;
-        font-weight: 600 !important;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #2563eb !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-    }
-
-    /* Expander styling 
-    .streamlit-expanderHeader {
-        font-weight: 700 !important;
-        background-color: #1a1a1a !important;
-        color: #ffffff !important;
-        border-radius: 6px !important;
-        padding: 8px !important;
-    }
-    .streamlit-expanderHeader[aria-expanded="true"] {
-        background-color: #b91c1c !important; /* highlight when open */
-        color: #ffffff !important;
-        font-weight: 800 !important;
-    }
-    .streamlit-expanderContent {
-        background-color: #111111 !important;
-    }
-    */
-    /* Expander container */
-details[data-testid="stExpander"] {
-    background-color: #111111 !important;
-    border-radius: 6px !important;
+ /* ------------------------------
+   GLOBAL DARK THEME
+------------------------------ */
+.main, .block-container {
+    background-color: #0d0d0d !important;
+    color: #ffffff !important;
+}
+.main * {
+    color: #ffffff !important;
 }
 
-/* Expander header (closed state) */
-details[data-testid="stExpander"] > summary {
-    background-color: #1a1a1a !important;
-    color: #ffffff !important;
+/* ------------------------------
+   HEADER
+------------------------------ */
+.curata-header {
+    text-align: center;
+    padding: 12px 0 20px 0;
+    border-bottom: 1px solid #333333;
+}
+.curata-title {
+    font-size: 28px;
+    font-weight: 800;
+}
+.curata-tagline {
+    font-size: 15px;
+    opacity: 0.85;
+}
+
+/* ------------------------------
+   HEADINGS
+------------------------------ */
+h1, h2, h3, h4, h5 {
     font-weight: 700 !important;
-    border-radius: 6px !important;
-    padding: 8px !important;
-    list-style: none !important;
 }
 
-/* Remove default disclosure triangle bullet */
-details[data-testid="stExpander"] > summary::-webkit-details-marker {
-    display: none !important;
+/* ------------------------------
+   METRICS
+------------------------------ */
+[data-testid="stMetric"], .stMetric {
+    background-color: #1a1a1a !important;
+    border-radius: 10px !important;
+    padding: 10px !important;
 }
-
-/* Expander header when open */
-details[data-testid="stExpander"][open] > summary {
-    background-color: #16a34a !important;  /* green when open */
+[data-testid="stMetric"] * {
     color: #ffffff !important;
-    font-weight: 800 !important;
+    font-weight: 600;
 }
 
-/* Hover when open – prevent white flash */
-details[data-testid="stExpander"][open] > summary:hover {
-    background-color: #15803d !important;  /* darker green on hover */
-    color: #ffffff !important;
+/* ------------------------------
+   DIVIDERS
+------------------------------ */
+.curata-divider {
+    margin: 18px 0;
+    border-top: 1px solid #2e2e2e;
 }
 
-/* Expander content background */
-details[data-testid="stExpander"] > div {
-    background-color: #111111 !important;
+/* ------------------------------
+   TABS
+------------------------------ */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.4rem;
 }
-
-    /* Inputs */
-    input, textarea, select {
-        background-color: #1a1a1a !important;
-        color: #ffffff !important;
-        border: 1px solid #333333 !important;
-        font-weight: 500 !important;
-    }
-    .stTextInput label,
-    .stNumberInput label,
-    .stDateInput label,
-    .stSelectbox label,
-    .stSlider label,
-    .stMultiSelect label,
-    .stRadio label,
-    .stCheckbox label,
-    .stTextArea label {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-    }
-
-    .stDataFrame, .stTable {
-        color: #ffffff !important;
-    }
-
-    /* Global button styling (includes login form submit button) */
-    .stButton > button {
-        background-color: #2563eb !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        border-radius: 8px !important;
-        padding: 8px 14px !important;
-        border: none !important;
-    }
-    .stButton > button:hover {
-        background-color: #1d4ed8 !important;
-    }
-
- /* FINAL FIX — Style Streamlit form submit button */
-div.stButton > button[kind="formSubmit"] {
+.stTabs [data-baseweb="tab"] {
+    background-color: #1a1a1a !important;
+    padding: 8px 14px !important;
+    border-radius: 20px !important;
+    color: #cccccc !important;
+    font-weight: 600 !important;
+}
+.stTabs [aria-selected="true"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
     font-weight: 700 !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    border: none !important;
-    box-shadow: none !important;
 }
 
-/* Remove white wrapper div */
-div.stButton > button[kind="formSubmit"] + div {
-    background-color: transparent !important;
+/* ------------------------------
+   INPUTS
+------------------------------ */
+input, textarea, select {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid #333333 !important;
+    font-weight: 500 !important;
+}
+.stTextInput label,
+.stNumberInput label,
+.stDateInput label,
+.stSelectbox label,
+.stSlider label,
+.stMultiSelect label,
+.stRadio label,
+.stCheckbox label,
+.stTextArea label {
+    color: #ffffff !important;
+    font-weight: 700 !important;
 }
 
-/* Remove white background from container */
-div.stButton {
-    background-color: transparent !important;
+/* ------------------------------
+   TABLES
+------------------------------ */
+.stDataFrame, .stTable {
+    color: #ffffff !important;
 }
 
-/* Hover state */
-div.stButton > button[kind="formSubmit"]:hover {
-    background-color: #1d4ed8 !important;
-}
-/* Style form submit button with type="primary" */
+/* ------------------------------
+   BUTTONS (GLOBAL + LOGIN)
+------------------------------ */
+.stButton > button,
 button[data-testid="formSubmitButton"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
@@ -211,32 +143,66 @@ button[data-testid="formSubmitButton"] {
     border: none !important;
     box-shadow: none !important;
 }
-
-/* Hover state */
+.stButton > button:hover,
 button[data-testid="formSubmitButton"]:hover {
     background-color: #1d4ed8 !important;
 }
 
-/* Remove white wrapper div */
+/* Remove white wrapper div around form submit buttons */
 button[data-testid="formSubmitButton"] + div {
     background-color: transparent !important;
 }
-
-/* Remove white background from container */
 div.stButton {
     background-color: transparent !important;
 }
 
+/* ------------------------------
+   EXPANDERS (LATEST STREAMLIT DOM)
+------------------------------ */
 
+/* Expander container */
+div[data-testid="stExpander"] {
+    background-color: #111111 !important;
+    border-radius: 6px !important;
+}
 
-    @media (max-width: 768px) {
-        .curata-title {
-            font-size: 22px;
-        }
-        .curata-tagline {
-            font-size: 13px;
-        }
+/* Expander header (closed) */
+div[data-testid="stExpander"] > div:first-child {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+}
+
+/* Expander header (open) */
+div[data-testid="stExpander"][aria-expanded="true"] > div:first-child {
+    background-color: #16a34a !important; /* green */
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+
+/* Expander header hover (open) */
+div[data-testid="stExpander"][aria-expanded="true"] > div:first-child:hover {
+    background-color: #15803d !important; /* darker green */
+}
+
+/* Expander content */
+div[data-testid="stExpander"] > div:nth-child(2) {
+    background-color: #111111 !important;
+}
+
+/* ------------------------------
+   MOBILE
+------------------------------ */
+@media (max-width: 768px) {
+    .curata-title {
+        font-size: 22px;
     }
+    .curata-tagline {
+        font-size: 13px;
+    }
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -390,6 +356,16 @@ def logout_button():
 # ---------------------- Main app ---------------------- #
 def main_app():
     init_default_state()
+
+        # Auto-restore session once after login
+    if "session_restored" not in st.session_state:
+        if os.path.exists(SESSION_FILE):
+            try:
+                load_session_from_file()
+            except Exception:
+                pass
+        st.session_state["session_restored"] = True
+
 
     # Header
     st.markdown(
