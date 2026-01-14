@@ -124,7 +124,7 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* Global button styling (includes login button when we switch to st.button) */
+    /* Global button styling (includes login form submit button) */
     .stButton > button {
         background-color: #2563eb !important;
         color: #ffffff !important;
@@ -273,17 +273,18 @@ def login_screen():
     st.title("Curata Dashboard Login")
     st.write("Access is restricted. Please log in to continue.")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Log in")
 
-    if st.button("Log in"):
-        if username in USERS and USERS[username] == password:
-            st.session_state["authenticated"] = True
-            st.session_state["auth_user"] = username
-            st.success(f"Welcome, {username}. Loading dashboard...")
-            st.experimental_rerun()
-        else:
-            st.error("Invalid username or password.")
+        if submit:
+            if username in USERS and USERS[username] == password:
+                st.session_state["authenticated"] = True
+                st.session_state["auth_user"] = username
+                st.success(f"Welcome, {username}. Loading dashboard...")
+            else:
+                st.error("Invalid username or password.")
 
 def logout_button():
     if st.sidebar.button("Log out"):
