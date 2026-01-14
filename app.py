@@ -33,6 +33,7 @@ st.markdown(
     .main * {
         color: #ffffff !important;
     }
+
     .curata-header {
         text-align: center;
         padding: 12px 0 20px 0;
@@ -46,9 +47,11 @@ st.markdown(
         font-size: 15px;
         opacity: 0.85;
     }
+
     h1, h2, h3, h4, h5 {
         font-weight: 700 !important;
     }
+
     [data-testid="stMetric"], .stMetric {
         background-color: #1a1a1a !important;
         border-radius: 10px !important;
@@ -58,10 +61,12 @@ st.markdown(
         color: #ffffff !important;
         font-weight: 600;
     }
+
     .curata-divider {
         margin: 18px 0;
         border-top: 1px solid #2e2e2e;
     }
+
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.4rem;
     }
@@ -77,12 +82,25 @@ st.markdown(
         color: #ffffff !important;
         font-weight: 700 !important;
     }
+
+    /* Expander styling */
     .streamlit-expanderHeader {
         font-weight: 700 !important;
+        background-color: #1a1a1a !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+        padding: 8px !important;
+    }
+    .streamlit-expanderHeader[aria-expanded="true"] {
+        background-color: #b91c1c !important; /* highlight when open */
+        color: #ffffff !important;
+        font-weight: 800 !important;
     }
     .streamlit-expanderContent {
         background-color: #111111 !important;
     }
+
+    /* Inputs */
     input, textarea, select {
         background-color: #1a1a1a !important;
         color: #ffffff !important;
@@ -101,14 +119,13 @@ st.markdown(
         color: #ffffff !important;
         font-weight: 700 !important;
     }
-    .css-1p3j8v5, .css-16idsys, .css-1kyxreq {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-    }
+
     .stDataFrame, .stTable {
         color: #ffffff !important;
     }
-    .stButton>button {
+
+    /* Global button styling (includes login button when we switch to st.button) */
+    .stButton > button {
         background-color: #2563eb !important;
         color: #ffffff !important;
         font-weight: 700 !important;
@@ -116,9 +133,10 @@ st.markdown(
         padding: 8px 14px !important;
         border: none !important;
     }
-    .stButton>button:hover {
+    .stButton > button:hover {
         background-color: #1d4ed8 !important;
     }
+
     @media (max-width: 768px) {
         .curata-title {
             font-size: 22px;
@@ -127,72 +145,6 @@ st.markdown(
             font-size: 13px;
         }
     }
-/* Fix login form submit button and its wrapper */
-form .stButton > button {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    border: none !important;
-}
-
-/* Remove white background from the stButton container */
-form .stButton {
-    background-color: transparent !important;
-}
-
-/* Remove white background from the extra wrapper div */
-form .stButton > div {
-    background-color: transparent !important;
-}
-
-/* Hover state */
-form .stButton > button:hover {
-    background-color: #1d4ed8 !important;
-}
-/* Fix Streamlit form submit button styling */
-div.stButton > button {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    border: none !important;
-    width: auto !important;
-}
-
-/* Remove white background from button container */
-div.stButton {
-    background-color: transparent !important;
-}
-
-/* Fix hover state */
-div.stButton > button:hover {
-    background-color: #1d4ed8 !important;
-}
-
-/* Closed expander header */
-.streamlit-expanderHeader {
-    background-color: #1a1a1a !important;
-    color: #ffffff !important;
-    border-radius: 6px !important;
-    padding: 8px !important;
-}
-
-/* OPEN expander header (highlight in red) */
-.streamlit-expanderHeader[aria-expanded="true"] {
-    background-color: #b91c1c !important; /* deep red */
-    color: #ffffff !important;
-    border-radius: 6px !important;
-    padding: 8px !important;
-    font-weight: 800 !important;
-}
-
-/* Expander content background */
-.streamlit-expanderContent {
-    background-color: #111111 !important;
-}
 </style>
 """,
     unsafe_allow_html=True,
@@ -321,12 +273,10 @@ def login_screen():
     st.title("Curata Dashboard Login")
     st.write("Access is restricted. Please log in to continue.")
 
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Log in")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-    if submit:
+    if st.button("Log in"):
         if username in USERS and USERS[username] == password:
             st.session_state["authenticated"] = True
             st.session_state["auth_user"] = username
