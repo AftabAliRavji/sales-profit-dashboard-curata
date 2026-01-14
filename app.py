@@ -162,6 +162,31 @@ div.stButton {
 div.stButton > button[kind="formSubmit"]:hover {
     background-color: #1d4ed8 !important;
 }
+/* Style form submit button with type="primary" */
+button[data-testid="formSubmitButton"] {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Hover state */
+button[data-testid="formSubmitButton"]:hover {
+    background-color: #1d4ed8 !important;
+}
+
+/* Remove white wrapper div */
+button[data-testid="formSubmitButton"] + div {
+    background-color: transparent !important;
+}
+
+/* Remove white background from container */
+div.stButton {
+    background-color: transparent !important;
+}
 
 
 
@@ -305,7 +330,7 @@ def login_screen():
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Log in")
+        submit = st.form_submit_button("Log in", type="primary")
 
     # Handle submission after form block
     if submit:
