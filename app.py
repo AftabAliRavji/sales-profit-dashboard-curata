@@ -127,7 +127,7 @@ st.markdown(
             font-size: 13px;
         }
     }
-/* Fix login form submit button + wrapper */
+/* Style the login form submit button */
 form button[type="submit"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
@@ -137,8 +137,19 @@ form button[type="submit"] {
     border: none !important;
 }
 
-/* Remove the white background wrapper that Streamlit adds */
+/* Remove white background from the inner wrapper */
 form button[type="submit"] + div {
+    background-color: transparent !important;
+}
+
+/* Remove white background from the OUTER wrapper */
+form .stButton > button {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+}
+
+/* Remove white background from the stButton container */
+form .stButton {
     background-color: transparent !important;
 }
 
@@ -146,8 +157,6 @@ form button[type="submit"] + div {
 form button[type="submit"]:hover {
     background-color: #1d4ed8 !important;
 }
-
-
 /* Closed expander header */
 .streamlit-expanderHeader {
     background-color: #1a1a1a !important;
