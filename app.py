@@ -133,6 +133,24 @@ input, textarea, select {
 /* ------------------------------
    BUTTONS (GLOBAL + LOGIN)
 ------------------------------ */
+/* ------------------------------
+   DOWNLOAD BUTTON (EXPORT TAB)
+------------------------------ */
+div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"] {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Hover state */
+div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"]:hover {
+    background-color: #1d4ed8 !important;
+}
+
 .stButton > button,
 button[data-testid="formSubmitButton"] {
     background-color: #2563eb !important;
