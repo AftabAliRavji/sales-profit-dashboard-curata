@@ -157,38 +157,39 @@ div.stButton {
 }
 
 /* ------------------------------
-   EXPANDERS (LATEST STREAMLIT DOM)
+   EXPANDERS (MATCHING YOUR DOM)
 ------------------------------ */
 
 /* Expander container */
-div[data-testid="stExpander"] {
+div.stExpander[data-testid="stExpander"] {
     background-color: #111111 !important;
     border-radius: 6px !important;
 }
 
-/* Expander header (closed) */
-div[data-testid="stExpander"] > div:first-child {
+/* Expander header (closed state) */
+div.stExpander[data-testid="stExpander"] > details > summary {
     background-color: #1a1a1a !important;
     color: #ffffff !important;
     font-weight: 700 !important;
     border-radius: 6px !important;
     padding: 8px !important;
+    list-style: none !important;
 }
 
-/* Expander header (open) */
-div[data-testid="stExpander"][aria-expanded="true"] > div:first-child {
-    background-color: #16a34a !important; /* green */
+/* Expander header (open state) */
+div.stExpander[data-testid="stExpander"] > details[open] > summary {
+    background-color: #16a34a !important;  /* green when open */
     color: #ffffff !important;
     font-weight: 800 !important;
 }
 
 /* Expander header hover (open) */
-div[data-testid="stExpander"][aria-expanded="true"] > div:first-child:hover {
-    background-color: #15803d !important; /* darker green */
+div.stExpander[data-testid="stExpander"] > details[open] > summary:hover {
+    background-color: #15803d !important;  /* darker green on hover */
 }
 
-/* Expander content */
-div[data-testid="stExpander"] > div:nth-child(2) {
+/* Expander content background */
+div.stExpander[data-testid="stExpander"] > details > div[data-testid="stExpanderDetails"] {
     background-color: #111111 !important;
 }
 
