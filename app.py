@@ -4,18 +4,15 @@ from datetime import date, timedelta
 import json
 import os
 import requests
-import plotly.express as px  # NEW: for charts
+import plotly.express as px
 
 SESSION_FILE = "curata_session.json"
 
-# ---------------------- Auth config (multiple users) ---------------------- #
-# NOTE: Have been moved to secrets in StreamLit, hence picking up with st.secrets variable
 # ---------------------- Auth config (multiple users from secrets) ---------------------- #
 USERS = {
     st.secrets["auth"]["user1"]: st.secrets["auth"]["pass1"],
     st.secrets["auth"]["user2"]: st.secrets["auth"]["pass2"],
 }
-
 
 # ---------------------- Page config ---------------------- #
 st.set_page_config(
@@ -132,10 +129,7 @@ input, textarea, select {
 }
 
 /* ------------------------------
-   BUTTONS (GLOBAL + LOGIN)
------------------------------- */
-/* ------------------------------
-   DOWNLOAD BUTTON (EXPORT TAB)
+   BUTTONS (GLOBAL + EXPORT)
 ------------------------------ */
 div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"] {
     background-color: #2563eb !important;
@@ -146,8 +140,6 @@ div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBas
     border: none !important;
     box-shadow: none !important;
 }
-
-/* Hover state */
 div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"]:hover {
     background-color: #1d4ed8 !important;
 }
@@ -178,14 +170,10 @@ div.stButton {
 /* ------------------------------
    EXPANDERS (MATCHING YOUR DOM)
 ------------------------------ */
-
-/* Expander container */
 div.stExpander[data-testid="stExpander"] {
     background-color: #111111 !important;
     border-radius: 6px !important;
 }
-
-/* Expander header (closed state) */
 div.stExpander[data-testid="stExpander"] > details > summary {
     background-color: #1a1a1a !important;
     color: #ffffff !important;
@@ -194,24 +182,17 @@ div.stExpander[data-testid="stExpander"] > details > summary {
     padding: 8px !important;
     list-style: none !important;
 }
-
-/* Expander header (open state) */
 div.stExpander[data-testid="stExpander"] > details[open] > summary {
-    background-color: #16a34a !important;  /* green when open */
+    background-color: #16a34a !important;
     color: #ffffff !important;
     font-weight: 800 !important;
 }
-
-/* Expander header hover (open) */
 div.stExpander[data-testid="stExpander"] > details[open] > summary:hover {
-    background-color: #15803d !important;  /* darker green */
+    background-color: #15803d !important;
 }
-
-/* Expander content background */
 div.stExpander[data-testid="stExpander"] > details > div[data-testid="stExpanderDetails"] {
     background-color: #111111 !important;
 }
-
 
 /* ------------------------------
    MOBILE
@@ -278,8 +259,9 @@ def save_session_to_file():
     try:
         with open(SESSION_FILE, "w") as f:
             json.dump(data, f)
+        st.success("Session saved on server.")
     except Exception:
-        pass
+        st.warning("Could not save session to server.")
 
 def load_session_from_file():
     if not os.path.exists(SESSION_FILE):
@@ -296,10 +278,10 @@ def load_session_from_file():
                     st.session_state[k] = v
             else:
                 st.session_state[k] = v
-        st.success("Session loaded.")
+        st.success("Session loaded from server. Rerunning...")
+        st.rerun()
     except Exception as e:
         st.warning(f"Could not load session: {e}")
-
 
 def load_session_from_uploaded_json(uploaded_file):
     try:
@@ -319,23 +301,30 @@ def load_session_from_uploaded_json(uploaded_file):
                     st.session_state[k] = v
             else:
                 st.session_state[k] = v
-        st.success("Session restored. Rerunning...")
+        st.success("Session restored from uploaded file. Rerunning...")
         st.rerun()
     except Exception as e:
         st.warning(f"Could not apply uploaded session: {e}")
+
+def reset_session_state():
+    # Clear all app-related keys but keep auth
+    for k in get_app_state_keys():
+        st.session_state.pop(k, None)
+    for meta_key in ["session_restored"]:
+        st.session_state.pop(meta_key, None)
+    st.success("Session state reset. Rerunning...")
+    st.rerun()
 
 def init_default_state():
     if "days" not in st.session_state:
         st.session_state["days"] = 7
     if "start_date" not in st.session_state:
         st.session_state["start_date"] = date.today()
-    # FX rate: try live fetch once, then fall back to 0.79
     if "fx_rate" not in st.session_state:
         live_rate = fetch_live_fx_rate()
         st.session_state["fx_rate"] = live_rate if live_rate is not None else 0.79
     if "default_ad_spend" not in st.session_state:
         st.session_state["default_ad_spend"] = 64.0
-    # NEW: global visitors per day (Option B)
     if "visitors_per_day" not in st.session_state:
         st.session_state["visitors_per_day"] = 1
 
@@ -355,13 +344,11 @@ def login_screen():
     st.title("Curata Dashboard Login")
     st.write("Access is restricted. Please log in to continue.")
 
-    # Form so Enter on password submits
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit = st.form_submit_button("Log in", type="primary")
 
-    # Handle submission after form block
     if submit:
         if username in USERS and USERS[username] == password:
             st.session_state["authenticated"] = True
@@ -378,8 +365,6 @@ def logout_button():
         st.rerun()
 
 # ---------------------- Main app ---------------------- #
-st.write("Main app loaded")
-
 def main_app():
     init_default_state()
 
@@ -407,18 +392,18 @@ def main_app():
 
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-    # Logged-in user info + FX refresh in sidebar
+    # Sidebar: user + FX refresh + logout
     st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('auth_user', 'Unknown')}")
     if st.sidebar.button("Refresh FX rate (USD → GBP)"):
-
         new_rate = fetch_live_fx_rate()
         if new_rate is not None:
             st.session_state["fx_rate"] = new_rate
             st.sidebar.success(f"Updated FX rate: {new_rate:.4f}")
         else:
             st.sidebar.warning("Could not fetch live FX rate. Keeping existing value.")
+    logout_button()
 
-    # Tabs (NEW: Session Controls + Summary Charts)
+    # Tabs
     tabs = st.tabs(
         [
             "Inputs",
@@ -456,7 +441,6 @@ def main_app():
                 key="visitors_per_day",
             )
 
-        # Global default ad spend (no explicit value= to avoid Streamlit warning)
         default_ad_spend = st.number_input(
             "Default ad spend ($) for all days",
             min_value=0.0,
@@ -466,7 +450,6 @@ def main_app():
 
         st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-        # Per-day inputs
         for day_index in range(int(days)):
             init_day_state(day_index)
             day_date = start_date + timedelta(days=day_index)
@@ -474,13 +457,11 @@ def main_app():
 
             ad_spend_key = f"ad_spend_day_{day_index}"
 
-            # Determine indicator text
             if ad_spend_key in st.session_state:
                 indicator = "(custom)"
             else:
                 indicator = "(using default)"
 
-            # Determine value shown: per-day value or default
             default_for_day = st.session_state.get(
                 ad_spend_key,
                 st.session_state.get("default_ad_spend", 64.0),
@@ -496,7 +477,6 @@ def main_app():
                 key=ad_spend_key,
             )
 
-            # Orders expander
             orders_key = f"orders_day_{day_index}"
             current_orders = st.session_state[orders_key]
 
@@ -540,12 +520,10 @@ def main_app():
                     day_sales += sales_val
                     day_profit += profit_val
 
-            # Daily calculations
             profit_after_ads = day_profit - ad_spend
             profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
             percent_profit = ((day_profit - ad_spend) / day_sales * 100) if day_sales > 0 else 0.0
 
-            # Visitors and orders per day (for conversion rate & charts)
             visitors = st.session_state.get("visitors_per_day", 1)
             orders_count = current_orders
 
@@ -563,7 +541,6 @@ def main_app():
                 }
             )
 
-        # Build daily dataframe
         if daily_rows:
             df = pd.DataFrame(daily_rows)
         else:
@@ -686,6 +663,157 @@ def main_app():
                 monthly["Profit %"] = (
                     (monthly["Profit ($)"] - monthly["Ad Spend ($)"]) / monthly["Sales ($)"] * 100
                 ).fillna(0)
+                st.dataframe(monthly, use_container_width=True)
+            else:
+                st.write("No monthly data to display.")
+
+            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+            st.markdown("### Yearly summary")
+            yearly = (
+                df_summary
+                .groupby(df_summary["Date"].dt.year)
+                .agg(
+                    {
+                        "Sales ($)": "sum",
+                        "Profit ($)": "sum",
+                        "Ad Spend ($)": "sum",
+                        "Profit After Ads ($)": "sum",
+                        "Profit After Ads (£)": "sum",
+                    }
+                )
+                .reset_index()
+                .rename(columns={"Date": "Year"})
+            )
+
+            if not yearly.empty:
+                yearly["Profit %"] = (
+                    (yearly["Profit ($)"] - yearly["Ad Spend ($)"]) / yearly["Sales ($)"] * 100
+                ).fillna(0)
+                st.dataframe(yearly, use_container_width=True)
+            else:
+                st.write("No yearly data to display.")
+
+    # ---------------------- Tab 4: Export ---------------------- #
+    with tabs[3]:
+        st.subheader("📤 Export data")
+
+        df = st.session_state.get("daily_df", pd.DataFrame())
+        if df.empty:
+            st.info("No data to export yet. Fill in the Inputs tab first.")
+        else:
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Download daily data as CSV",
+                data=csv,
+                file_name="curata_daily_data.csv",
+                mime="text/csv",
+            )
+
+    # ---------------------- Tab 5: Session JSON ---------------------- #
+    with tabs[4]:
+        st.subheader("🧾 Session JSON view & download")
+
+        sess_dict = export_session_state_dict()
+        st.json(sess_dict)
+
+        json_bytes = json.dumps(sess_dict, indent=2).encode("utf-8")
+        st.download_button(
+            label="Download session JSON",
+            data=json_bytes,
+            file_name="curata_session.json",
+            mime="application/json",
+        )
+
+    # ---------------------- Tab 6: Session Controls ---------------------- #
+    with tabs[5]:
+        st.subheader("🧰 Session controls")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💾 Save session to server"):
+                save_session_to_file()
+        with col2:
+            if st.button("📂 Load session from server"):
+                load_session_from_file()
+
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+        uploaded = st.file_uploader("Upload session JSON to restore", type=["json"])
+        if uploaded is not None:
+            if st.button("Restore from uploaded JSON"):
+                load_session_from_uploaded_json(uploaded)
+
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+        if st.button("♻️ Reset session (keep login)"):
+            reset_session_state()
+
+    # ---------------------- Tab 7: Summary Charts ---------------------- #
+    with tabs[6]:
+        st.subheader("📉 Summary charts")
+
+        df = st.session_state.get("daily_df", pd.DataFrame())
+        if df.empty:
+            st.info("No data yet. Fill in the Inputs tab first.")
+        else:
+            df_plot = df.copy()
+            df_plot["Date"] = pd.to_datetime(df_plot["Date"])
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                fig_sales = px.line(
+                    df_plot,
+                    x="Date",
+                    y="Sales ($)",
+                    title="Daily sales ($)",
+                )
+                st.plotly_chart(fig_sales, use_container_width=True)
+
+                fig_profit = px.line(
+                    df_plot,
+                    x="Date",
+                    y="Profit ($)",
+                    title="Daily profit ($)",
+                )
+                st.plotly_chart(fig_profit, use_container_width=True)
+
+            with col2:
+                fig_ad = px.line(
+                    df_plot,
+                    x="Date",
+                    y="Ad Spend ($)",
+                    title="Daily ad spend ($)",
+                )
+                st.plotly_chart(fig_ad, use_container_width=True)
+
+                fig_profit_after = px.line(
+                    df_plot,
+                    x="Date",
+                    y="Profit After Ads ($)",
+                    title="Profit after ads ($)",
+                )
+                st.plotly_chart(fig_profit_after, use_container_width=True)
+
+            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+            if "Visitors" in df_plot.columns and "Orders" in df_plot.columns:
+                df_plot["Conversion rate (%)"] = (
+                    df_plot.apply(
+                        lambda row: (row["Orders"] / row["Visitors"] * 100)
+                        if row["Visitors"] > 0
+                        else 0.0,
+                        axis=1,
+                    )
+                )
+                fig_conv = px.line(
+                    df_plot,
+                    x="Date",
+                    y="Conversion rate (%)",
+                    title="Conversion rate (%)",
+                )
+                st.plotly_chart(fig_conv, use_container_width=True)
 
 # ---------------------- Run the app ---------------------- #
 init_auth_state()
@@ -694,6 +822,3 @@ if not st.session_state["authenticated"]:
     login_screen()
 else:
     main_app()
-
-           
-
