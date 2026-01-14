@@ -18,12 +18,30 @@ Includes session saving/loading, JSON backup, export tools, and summary charts.
 - CSV export
 - Dark mode UI with custom CSS
 
-## 📦 Installation
+## 📦 Installation on command line
 
 Clone the repo:
+git clone https://github.com/<your-username>/<your-repo>.git
+cd <your-repo>
+pip install -r requirements.txt
+streamlit run app.py
+
+## if want to build dockerfile locally
+docker build -t curata-dashboard .
+docker run -p 8501:8501 curata-dashboard
+
+## open on browser
+http://localhost:8501
+
+## using docker-compose
+docker-compose up --build
+
+## open on browser
+http://localhost:8501
 
 
-#old comments
+
+## old comments - of breakdown od updates in this app
 This file contains python code for an app which creates the following - 
 1. allows each day inputs
 2. adding number of orders with sales
