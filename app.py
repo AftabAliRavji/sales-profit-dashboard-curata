@@ -480,16 +480,23 @@ def main_app():
             orders_key = f"orders_day_{day_index}"
             current_orders = st.session_state[orders_key]
 
-            with st.expander(f"Orders for {day_label} (Total: {current_orders})", expanded=False):
+            expander_key = f"expander_open_day_{day_index}"
+            if expander_key not in st.session_state:
+              st.session_state[expander_key] = False
+
+            with st.expander(f"Orders for {day_label} (Total: {current_orders})", expanded=st.session_state[expander_key]):
+
                 c1, c2, _ = st.columns([1, 1, 1])
                 with c1:
                     if st.button(f"➕ Add order (Day {day_index + 1})"):
                         st.session_state[orders_key] += 1
+                        st.session_state[expander_key] = True
                         st.rerun()
                 with c2:
                     if st.button(f"➖ Remove last order (Day {day_index + 1})"):
                         if st.session_state[orders_key] > 1:
                             st.session_state[orders_key] -= 1
+                            st.session_state[expander_key] = True
                             st.rerun()
 
                 day_sales = 0.0
