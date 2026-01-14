@@ -1,3 +1,29 @@
+# Curata Daily Performance Dashboard
+
+A Streamlit-based dashboard for tracking daily sales, profit, ad spend, ROAS, and conversion rate.  
+Includes session saving/loading, JSON backup, export tools, and summary charts.
+
+## 🚀 Features
+
+- Daily inputs for sales, profit, ad spend, and orders
+- Global visitors-per-day input
+- Automatic FX conversion (USD → GBP)
+- KPIs and profitability metrics
+- Weekly, monthly, and yearly summaries
+- Summary charts:
+  - Sales vs Net Profit – Ad Spend
+  - ROAS & Conversion Rate
+- Session save/load (server file)
+- JSON backup + restore
+- CSV export
+- Dark mode UI with custom CSS
+
+## 📦 Installation
+
+Clone the repo:
+
+
+#old comments
 This file contains python code for an app which creates the following - 
 1. allows each day inputs
 2. adding number of orders with sales
