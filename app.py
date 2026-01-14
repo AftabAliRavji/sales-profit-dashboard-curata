@@ -686,5 +686,14 @@ def main_app():
                 monthly["Profit %"] = (
                     (monthly["Profit ($)"] - monthly["Ad Spend ($)"]) / monthly["Sales ($)"] * 100
                 ).fillna(0)
+
+# ---------------------- Run the app ---------------------- #
+init_auth_state()
+
+if not st.session_state["authenticated"]:
+    login_screen()
+else:
+    main_app()
+
            
 
