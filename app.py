@@ -151,6 +151,26 @@ form .stButton > div {
 form .stButton > button:hover {
     background-color: #1d4ed8 !important;
 }
+/* Fix Streamlit form submit button styling */
+div.stButton > button {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+    width: auto !important;
+}
+
+/* Remove white background from button container */
+div.stButton {
+    background-color: transparent !important;
+}
+
+/* Fix hover state */
+div.stButton > button:hover {
+    background-color: #1d4ed8 !important;
+}
 
 /* Closed expander header */
 .streamlit-expanderHeader {
