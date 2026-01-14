@@ -127,19 +127,7 @@ st.markdown(
             font-size: 13px;
         }
     }
-    /* Fix login form button */
-form button[kind="primary"] {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    border: none !important;
-}
-form button[kind="primary"]:hover {
-    background-color: #1d4ed8 !important;
-}
-/* Style login form submit button */
+/* Fix login form submit button + wrapper */
 form button[type="submit"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
@@ -149,9 +137,16 @@ form button[type="submit"] {
     border: none !important;
 }
 
+/* Remove the white background wrapper that Streamlit adds */
+form button[type="submit"] + div {
+    background-color: transparent !important;
+}
+
+/* Hover state */
 form button[type="submit"]:hover {
     background-color: #1d4ed8 !important;
 }
+
 
 /* Closed expander header */
 .streamlit-expanderHeader {
