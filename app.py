@@ -378,6 +378,8 @@ def logout_button():
         st.rerun()
 
 # ---------------------- Main app ---------------------- #
+st.write("Main app loaded")
+
 def main_app():
     init_default_state()
 
