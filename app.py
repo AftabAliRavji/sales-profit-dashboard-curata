@@ -11,10 +11,8 @@ SESSION_FILE = "curata_session.json"
 # ---------------------- Auth config (multiple users) ---------------------- #
 # NOTE: Have been moved to secrets in StreamLit, hence picking up with st.secrets variable
 # ---------------------- Auth config (multiple users from secrets) ---------------------- #
-USERS = {
-    st.secrets["auth"]["user1"]: st.secrets["auth"]["pass1"],
-    st.secrets["auth"]["user2"]: st.secrets["auth"]["pass2"],
-}
+USERS = {"test": "test"}
+
 
 
 # ---------------------- Page config ---------------------- #
@@ -687,4 +685,5 @@ def main_app():
                     (monthly["Profit ($)"] - monthly["Ad Spend ($)"]) / monthly["Sales ($)"] * 100
                 ).fillna(0)
            
+
 
