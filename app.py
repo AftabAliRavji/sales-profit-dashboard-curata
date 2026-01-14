@@ -193,17 +193,6 @@ div.stExpander[data-testid="stExpander"] > details > div[data-testid="stExpander
     background-color: #111111 !important;
 }
 
-/* Tab content container fix */
-div[data-testid="stVerticalBlock"] {
-    background-color: #0d0d0d !important;
-    color: #ffffff !important;
-}
-
-div[data-testid="stHorizontalBlock"] {
-    background-color: #0d0d0d !important;
-    color: #ffffff !important;
-}
-
 
 /* ------------------------------
    MOBILE
