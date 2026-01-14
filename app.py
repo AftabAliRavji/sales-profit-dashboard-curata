@@ -139,6 +139,20 @@ form button[kind="primary"] {
 form button[kind="primary"]:hover {
     background-color: #1d4ed8 !important;
 }
+/* Style login form submit button */
+form button[type="submit"] {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+}
+
+form button[type="submit"]:hover {
+    background-color: #1d4ed8 !important;
+}
+
 /* Closed expander header */
 .streamlit-expanderHeader {
     background-color: #1a1a1a !important;
