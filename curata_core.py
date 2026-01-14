@@ -860,64 +860,74 @@ date,order_index,sales,profit,ad_spend,visitors
             reset_session_state()
 
     # ---------------------- Tab 8: Summary Charts ---------------------- #
-    with tabs[7]:
-        st.subheader("📉 Summary charts")
+with tabs[7]:
+    st.subheader("📉 Summary charts")
 
-        df = st.session_state.get("daily_df", pd.DataFrame())
+    df = st.session_state.get("daily_df", pd.DataFrame())
 
-        if df.empty:
-            st.info("No data yet.")
-        else:
-            df_plot = df.copy()
-            df_plot["Date"] = pd.to_datetime(df_plot["Date"])
+    if df.empty:
+        st.info("No data yet.")
+    else:
+        df_plot = df.copy()
+        df_plot["Date"] = pd.to_datetime(df_plot["Date"])
 
-            col1, col2 = st.columns(2)
+        st.markdown("### Daily sales ($)")
+        fig_sales = px.bar(
+            df_plot,
+            x="Date",
+            y="Sales ($)",
+            title="Daily sales ($)",
+            color_discrete_sequence=["#2563eb"],
+        )
+        st.plotly_chart(fig_sales, use_container_width=True)
 
-            with col1:
-                st.plotly_chart(
-                    px.line(df_plot, x="Date", y="Sales ($)", title="Daily sales ($)"),
-                    use_container_width=True,
-                )
+        st.markdown("### Daily profit ($)")
+        fig_profit = px.bar(
+            df_plot,
+            x="Date",
+            y="Profit ($)",
+            title="Daily profit ($)",
+            color_discrete_sequence=["#16a34a"],
+        )
+        st.plotly_chart(fig_profit, use_container_width=True)
 
-                st.plotly_chart(
-                    px.line(df_plot, x="Date", y="Profit ($)", title="Daily profit ($)"),
-                    use_container_width=True,
-                )
+        st.markdown("### Daily ad spend ($)")
+        fig_ad = px.bar(
+            df_plot,
+            x="Date",
+            y="Ad Spend ($)",
+            title="Daily ad spend ($)",
+            color_discrete_sequence=["#f59e0b"],
+        )
+        st.plotly_chart(fig_ad, use_container_width=True)
 
-            with col2:
-                st.plotly_chart(
-                    px.line(df_plot, x="Date", y="Ad Spend ($)", title="Daily ad spend ($)"),
-                    use_container_width=True,
-                )
+        st.markdown("### Profit after ads ($)")
+        fig_profit_after = px.bar(
+            df_plot,
+            x="Date",
+            y="Profit After Ads ($)",
+            title="Profit after ads ($)",
+            color_discrete_sequence=["#dc2626"],
+        )
+        st.plotly_chart(fig_profit_after, use_container_width=True)
 
-                st.plotly_chart(
-                    px.line(
-                        df_plot,
-                        x="Date",
-                        y="Profit After Ads ($)",
-                        title="Profit after ads ($)",
-                    ),
-                    use_container_width=True,
-                )
+        if "Visitors" in df_plot.columns and "Orders" in df_plot.columns:
+            df_plot["Conversion rate (%)"] = df_plot.apply(
+                lambda row: (row["Orders"] / row["Visitors"] * 100)
+                if row["Visitors"] > 0
+                else 0.0,
+                axis=1,
+            )
 
-            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+            st.markdown("### Conversion rate (%)")
+            fig_conv = px.bar(
+                df_plot,
+                x="Date",
+                y="Conversion rate (%)",
+                title="Conversion rate (%)",
+                color_discrete_sequence=["#7c3aed"],
+            )
+            st.plotly_chart(fig_conv, use_container_width=True)
 
-            if "Visitors" in df_plot.columns and "Orders" in df_plot.columns:
-                df_plot["Conversion rate (%)"] = df_plot.apply(
-                    lambda row: (row["Orders"] / row["Visitors"] * 100)
-                    if row["Visitors"] > 0
-                    else 0.0,
-                    axis=1,
-                )
-
-                st.plotly_chart(
-                    px.line(
-                        df_plot,
-                        x="Date",
-                        y="Conversion rate (%)",
-                        title="Conversion rate (%)",
-                    ),
-                    use_container_width=True,
-                )
 
 
