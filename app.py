@@ -127,8 +127,8 @@ st.markdown(
             font-size: 13px;
         }
     }
-/* Style the login form submit button */
-form button[type="submit"] {
+/* Fix login form submit button and its wrapper */
+form .stButton > button {
     background-color: #2563eb !important;
     color: #ffffff !important;
     font-weight: 700 !important;
@@ -137,26 +137,21 @@ form button[type="submit"] {
     border: none !important;
 }
 
-/* Remove white background from the inner wrapper */
-form button[type="submit"] + div {
-    background-color: transparent !important;
-}
-
-/* Remove white background from the OUTER wrapper */
-form .stButton > button {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-}
-
 /* Remove white background from the stButton container */
 form .stButton {
     background-color: transparent !important;
 }
 
+/* Remove white background from the extra wrapper div */
+form .stButton > div {
+    background-color: transparent !important;
+}
+
 /* Hover state */
-form button[type="submit"]:hover {
+form .stButton > button:hover {
     background-color: #1d4ed8 !important;
 }
+
 /* Closed expander header */
 .streamlit-expanderHeader {
     background-color: #1a1a1a !important;
