@@ -403,13 +403,14 @@ def main_app():
             padding: 0.75rem 0 0.25rem 0;
         }
         .curata-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #111827;
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #0f172a; /* darker slate */
         }
         .curata-tagline {
-            font-size: 0.9rem;
-            color: #4b5563;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937; /* darker gray */
         }
         .curata-divider {
             border-bottom: 1px solid #e5e7eb;
