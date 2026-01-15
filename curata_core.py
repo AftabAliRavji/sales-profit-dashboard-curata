@@ -600,29 +600,45 @@ def main_app():
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
 
-    # ---------------------- Tab 2: Bulk Import ---------------------- #
-    with tabs[1]:
-        st.subheader("📥 Bulk import daily data (JSON or CSV)")
+# ---------------------- Tab 2: Bulk Import ---------------------- #
+with tabs[1]:
+    st.subheader("📥 Bulk import daily data (JSON or CSV)")
 
-        # --- Styling fixes: visible browse button + readable filename ---
-        st.markdown(
-            """
-            <style>
-            .uploadedFileName {
-                color: #111 !important;
-                font-weight: 600 !important;
-            }
-            .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
-                border: 2px dashed #888 !important;
-                padding: 1.2rem !important;
-            }
-            .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
-                opacity: 1 !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+    # --- Styling fixes: visible browse button + readable filename ---
+    st.markdown(
+        """
+        <style>
+        /* Make filename and label text darker and bolder */
+        .uploadedFileName, .stFileUploader label {
+            color: #111 !important;
+            font-weight: 600 !important;
+        }
+
+        /* Make drag-and-drop box always visible */
+        .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
+            border: 2px dashed #888 !important;
+            padding: 1.2rem !important;
+            background-color: #f9f9f9 !important;
+        }
+
+        .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
+            opacity: 1 !important;
+        }
+
+        /* Style the Browse Files button */
+        .stFileUploader label span {
+            background-color: #2563eb !important;
+            color: white !important;
+            font-weight: 600 !important;
+            padding: 0.4rem 1rem !important;
+            border-radius: 6px !important;
+            border: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
         st.markdown(
             """
