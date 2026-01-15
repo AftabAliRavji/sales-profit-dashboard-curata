@@ -684,22 +684,18 @@ def main_app():
             """
 **JSON example:**
 
-{  
-  "2026-01-08": {  
-    "ad_spend": 64,  
-    "visitors": 120,  
-    "orders": [  
-      {"sales": 87.48, "profit": 26.98},  
-      {"sales": 45.00, "profit": 12.00}  
-    ]  
-  }  
+{
+  "2026-01-08": {
+    "ad_spend": 64,
+    "visitors": 120,
+    "orders": [...]
+  }
 }
 
 **CSV example:**
 
-date,order_index,sales,profit,ad_spend,visitors  
-2026-01-08,1,87.48,26.98,64,120  
-2026-01-08,2,45.00,12.00,64,120  
+date,order_index,sales,profit,ad_spend,visitors
+2026-01-08,1,87.48,26.98,64,120
 """
         )
 
@@ -712,6 +708,7 @@ date,order_index,sales,profit,ad_spend,visitors
             key="bulk_import_uploader",
         )
 
+        # Persist file across reruns
         if uploaded_bulk is not None:
             st.session_state["uploaded_bulk_file"] = uploaded_bulk
 
@@ -726,50 +723,35 @@ date,order_index,sales,profit,ad_spend,visitors
 
                 if st.button("Preview JSON data"):
                     try:
-                        data = json.load(file_obj)
-
-                        if isinstance(data, list):
-                            merged = {}
-                            for item in data:
-                                if isinstance(item, dict):
-                                    merged.update(item)
-                            data = merged
+                        raw_bytes = file_obj.getvalue()
+                        data = json.loads(raw_bytes.decode("utf-8"))
 
                         if not isinstance(data, dict):
                             st.error("JSON must be an object with dates as keys.")
                         else:
-                            preview_data = {}
-                            for k, v in data.items():
-                                if isinstance(v, dict):
-                                    shallow = {}
-                                    for kk, vv in v.items():
-                                        if isinstance(vv, list) and vv:
-                                            shallow[kk] = vv[0]
-                                        else:
-                                            shallow[kk] = vv
-                                    preview_data[k] = shallow
-                                else:
-                                    preview_data[k] = v
-
                             st.session_state["json_preview_raw"] = data
-                            st.session_state["json_preview"] = preview_data
                             st.success("Preview generated successfully.")
 
                     except Exception as e:
                         st.error(f"❌ Could not parse JSON: {e}")
 
-                if "json_preview" in st.session_state:
+                # Show preview panel
+                if "json_preview_raw" in st.session_state:
                     st.markdown("### 🔍 Preview of parsed JSON")
-                    st.json(st.session_state["json_preview"])
 
+                    raw_data = st.session_state["json_preview_raw"]
+
+                    for date_key, day_data in raw_data.items():
+                        with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
+                            st.json(day_data)
+
+                    # Validation
                     st.markdown("### 🧪 Validation report")
                     validation_messages = []
 
-                    for date_key, day_data in st.session_state["json_preview"].items():
+                    for date_key, day_data in raw_data.items():
                         if not isinstance(day_data, dict):
-                            validation_messages.append(
-                                f"❌ {date_key} is not a valid object."
-                            )
+                            validation_messages.append(f"❌ {date_key} is not a valid object.")
                             continue
 
                         required_fields = ["ad_spend", "visitors", "orders"]
@@ -791,6 +773,7 @@ date,order_index,sales,profit,ad_spend,visitors
                     else:
                         st.success("All dates validated successfully.")
 
+                # Import button
                 if st.button("Import JSON data"):
                     try:
                         raw_data = st.session_state.get("json_preview_raw", None)
@@ -804,7 +787,35 @@ date,order_index,sales,profit,ad_spend,visitors
                                 if isinstance(v, dict)
                             )
 
-                            parse_json_bulk(file_obj)
+                            # Convert raw_data into structured list
+                            day_data_list = []
+                            for date_key, day_info in raw_data.items():
+                                try:
+                                    day_date = pd.to_datetime(date_key).date()
+                                except Exception:
+                                    continue
+
+                                orders = day_info.get("orders", [])
+                                orders_clean = []
+                                for o in orders:
+                                    if isinstance(o, dict):
+                                        orders_clean.append(
+                                            {
+                                                "sales": float(o.get("sales", 0.0) or 0.0),
+                                                "profit": float(o.get("profit", 0.0) or 0.0),
+                                            }
+                                        )
+
+                                day_data_list.append(
+                                    {
+                                        "date": day_date,
+                                        "ad_spend": float(day_info.get("ad_spend", 0.0)),
+                                        "visitors": int(day_info.get("visitors", 1)),
+                                        "orders": orders_clean,
+                                    }
+                                )
+
+                            populate_from_structured_data(day_data_list)
 
                             st.success(
                                 f"✅ Imported {total_days} days and {total_orders} orders."
@@ -818,7 +829,8 @@ date,order_index,sales,profit,ad_spend,visitors
 
                 if st.button("Preview CSV data"):
                     try:
-                        df_test = pd.read_csv(file_obj)
+                        raw_bytes = file_obj.getvalue()
+                        df_test = pd.read_csv(pd.io.common.BytesIO(raw_bytes))
                         st.session_state["csv_preview"] = df_test
                         st.success("Preview generated successfully.")
                     except Exception as e:
@@ -853,7 +865,7 @@ date,order_index,sales,profit,ad_spend,visitors
                             total_days = df_test["date"].nunique()
                             total_orders = len(df_test)
 
-                            parse_csv_bulk(file_obj)
+                            parse_csv_bulk(pd.io.common.BytesIO(file_obj.getvalue()))
 
                             st.success(
                                 f"✅ Imported {total_days} days and {total_orders} orders."
@@ -866,6 +878,7 @@ date,order_index,sales,profit,ad_spend,visitors
                 st.warning("⚠️ Unsupported file type. Please upload a .json or .csv file.")
         else:
             st.info("Upload a JSON or CSV file to begin bulk import.")
+
     # ---------------------- Tab 3: KPIs ---------------------- #
     with tabs[2]:
         st.subheader("📊 KPIs")
