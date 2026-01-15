@@ -996,6 +996,7 @@ def init_day_state(day_index: int):
 def parse_json_bulk(uploaded_file):
     try:
         data = json.load(uploaded_file)
+        print("✅ JSON loaded:", data)
     except Exception:
         st.error("Invalid JSON file.")
         return
