@@ -396,7 +396,7 @@ def main_app():
         st.session_state["session_restored"] = True
 
     # ---------------------- Global CSS ---------------------- #
-     st.markdown(
+    st.markdown(
         """
         <style>
         .curata-header {
@@ -421,6 +421,7 @@ def main_app():
         """,
         unsafe_allow_html=True,
     )
+
 
     # ---------------------- Header ---------------------- #
     st.markdown(
