@@ -396,25 +396,26 @@ def main_app():
         st.session_state["session_restored"] = True
 
     # ---------------------- Global CSS ---------------------- #
-    st.markdown(
+     st.markdown(
         """
         <style>
         .curata-header {
             padding: 0.75rem 0 0.25rem 0;
         }
         .curata-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: #0f172a; /* darker slate */
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #000000;
+            letter-spacing: -0.5px;
         }
         .curata-tagline {
-            font-size: 1rem;
+            font-size: 1.05rem;
             font-weight: 600;
-            color: #1f2937; /* darker gray */
+            color: #333333;
         }
         .curata-divider {
-            border-bottom: 1px solid #e5e7eb;
-            margin: 0.75rem 0 1rem 0;
+            border-bottom: 1px solid #cccccc;
+            margin: 1rem 0 1.25rem 0;
         }
         </style>
         """,
