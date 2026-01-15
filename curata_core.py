@@ -400,27 +400,33 @@ def main_app():
         """
         <style>
         .curata-header {
-            padding: 0.75rem 0 0.25rem 0;
+            padding: 0.75rem 1rem 0.25rem 1rem !important;
+            background-color: #ffffff !important; /* ensures contrast */
+            border-radius: 6px !important;
         }
+
         .curata-title {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: #000000;
-            letter-spacing: -0.5px;
+            font-size: 1.8rem !important;
+            font-weight: 900 !important;
+            color: #000000 !important;
+            line-height: 1.2 !important;
         }
+
         .curata-tagline {
-            font-size: 1.05rem;
-            font-weight: 600;
-            color: #333333;
+            font-size: 1.05rem !important;
+            font-weight: 600 !important;
+            color: #333333 !important;
         }
+
         .curata-divider {
-            border-bottom: 1px solid #cccccc;
-            margin: 1rem 0 1.25rem 0;
+            border-bottom: 2px solid #d1d5db !important;
+            margin: 1rem 0 1.25rem 0 !important;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
+
 
 
     # ---------------------- Header ---------------------- #
