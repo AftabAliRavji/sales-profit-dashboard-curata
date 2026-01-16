@@ -202,7 +202,7 @@ def populate_from_structured_data(day_data_list):
         orders = day_info.get("orders", [])
 
         st.session_state[f"ad_spend_day_{idx}"] = ad_spend
-        st.session_state["visitors_per_day"] = visitors
+        st.session_state["import_visitors_per_day"] = visitors
 
         orders_key = f"orders_day_{idx}"
         num_orders = max(1, len(orders))
@@ -522,6 +522,7 @@ def main_app():
             if st.session_state.get("import_sync"):
                 start_date = st.date_input("Select start date", value=st.session_state["import_start_date"], key="start_date")
                 st.session_state["days"] = st.session_state["import_days"]
+                st.session_state["visitors_per_day"] = st.session_state["import_visitors_per_day"]
                 st.session_state["import_sync"] = False
                 st.rerun()
             else:
