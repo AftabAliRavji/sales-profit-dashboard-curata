@@ -505,6 +505,13 @@ def main_app():
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
         st.subheader("📥 Inputs")
+        # Sync imported values BEFORE any widgets are created
+        if st.session_state.get("import_sync"):
+            st.session_state["start_date"] = st.session_state["import_start_date"]
+            st.session_state["days"] = st.session_state["import_days"]
+            st.session_state["visitors_per_day"] = st.session_state.get("import_visitors_per_day", 1)
+            st.session_state["import_sync"] = False
+            st.rerun()
 
         col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 1])
 
@@ -518,15 +525,7 @@ def main_app():
             )
 
         with col_b:
-            # Use imported value as default, without overwriting widget key
-            if st.session_state.get("import_sync"):
-                st.session_state["start_date"] = st.session_state["import_start_date"]
-                st.session_state["days"] = st.session_state["import_days"]
-                st.session_state["visitors_per_day"] = st.session_state["import_visitors_per_day"]
-                st.session_state["import_sync"] = False
-                st.rerun()
-            else:
-                start_date = st.date_input("Select start date", key="start_date")
+            start_date = st.date_input("Select start date", key="start_date")
 
         with col_c:
             fx_rate = st.number_input(
