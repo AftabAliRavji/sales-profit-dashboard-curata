@@ -681,17 +681,7 @@ def main_app():
             """
             <style>
     /* Make label look like plain text */
-    .stFileUploader label {
-        background: none !important;
-        border: none !important;
-        padding: 0 !important;
-        margin-bottom: 0.4rem !important;
-        box-shadow: none !important;
-        cursor: default !important;
-        font-size: 1rem !important;
-        font-weight: 500 !important;
-        color: #374151 !important;
-    }
+    .stFileUploader label { background: none !important; border: none !important; padding: 0 !important; margin-bottom: 0.4rem !important; box-shadow: none !important; cursor: default !important; font-size: 1rem !important; font-weight: 700 !important; color: #ffffff !important; }
 
     /* Style dropzone */
     .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
