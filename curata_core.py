@@ -709,6 +709,13 @@ def main_app():
     }
    /* Style uploaded filename */ 
    .uploadedFileName { color: #ffffff !important; font-weight: 700 !important; font-size: 1rem !important; }    
+    /* Style uploaded filename and size */
+    div[data-testid="stFileUploader"] > div > div > span {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+    }
+   
             </style>
             """,
             unsafe_allow_html=True,
