@@ -130,7 +130,7 @@ def reset_session_state():
 def init_default_state():
     if "days" not in st.session_state:
         st.session_state["days"] = 7
-    if "start_date" not in st.session_state:
+    if "start_date" not in st.session_state and "import_start_date" not in st.session_state:
         st.session_state["start_date"] = date.today()
     if "fx_rate" not in st.session_state:
         live_rate = fetch_live_fx_rate()
@@ -518,15 +518,14 @@ def main_app():
             )
 
         with col_b:
-        # Sync imported values into widgets
+        # Use imported value as default, without overwriting widget key
         if st.session_state.get("import_sync"):
-            st.session_state["start_date"] = st.session_state["import_start_date"]
+            start_date = st.date_input("Select start date", value=st.session_state["import_start_date"], key="start_date")
             st.session_state["days"] = st.session_state["import_days"]
             st.session_state["import_sync"] = False
             st.rerun()
-        
-        start_date = st.date_input("Select start date", key="start_date")
-
+        else:
+            start_date = st.date_input("Select start date", key="start_date")
 
         with col_c:
             fx_rate = st.number_input(
