@@ -422,11 +422,19 @@ def main_app():
             border-bottom: 2px solid #d1d5db !important;
             margin: 1rem 0 1.25rem 0 !important;
         }
-        .stFileUploader label {
-            font-weight: 500 !important;
-            font-size: 1rem !important;
-            color: #374151 !important;
-        }        
+    /* Make the uploader label look like plain text instead of a button */
+    .stFileUploader label {
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin-bottom: 0.4rem !important;
+        box-shadow: none !important;
+        cursor: default !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        color: #374151 !important; /* slate-700 */
+    }
+
     /* Add the Browse button fix here */
     .stFileUploader span button {
         visibility: visible !important;
