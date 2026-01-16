@@ -518,14 +518,14 @@ def main_app():
             )
 
         with col_b:
-        # Use imported value as default, without overwriting widget key
-        if st.session_state.get("import_sync"):
-            start_date = st.date_input("Select start date", value=st.session_state["import_start_date"], key="start_date")
-            st.session_state["days"] = st.session_state["import_days"]
-            st.session_state["import_sync"] = False
-            st.rerun()
-        else:
-            start_date = st.date_input("Select start date", key="start_date")
+            # Use imported value as default, without overwriting widget key
+            if st.session_state.get("import_sync"):
+                start_date = st.date_input("Select start date", value=st.session_state["import_start_date"], key="start_date")
+                st.session_state["days"] = st.session_state["import_days"]
+                st.session_state["import_sync"] = False
+                st.rerun()
+            else:
+                start_date = st.date_input("Select start date", key="start_date")
 
         with col_c:
             fx_rate = st.number_input(
