@@ -1230,15 +1230,16 @@ date,order_index,sales,profit,ad_spend,visitors
         st.info("No data available or FX rate missing for GBP chart.")
 
 
-            # ============================
-            # Orders vs Visitors (Grouped Bar Chart)
-            # ============================
-            
+    # ============================
+    # Orders vs Visitors (Grouped Bar Chart)
+    # ============================
+    
     if not df.empty:
         df_chart = df.copy()
         df_chart["Date"] = pd.to_datetime(df_chart["Date"])
     
         st.markdown("### Orders vs Visitors")
+    
         fig_orders_visitors = px.bar(
             df_chart,
             x="Date",
@@ -1247,7 +1248,22 @@ date,order_index,sales,profit,ad_spend,visitors
             title="Orders vs Visitors",
             color_discrete_sequence=["#2563eb", "#4b5563"],
         )
+    
+        # Add labels above each bar
+        fig_orders_visitors.update_traces(
+            texttemplate="%{y}",
+            textposition="outside"
+        )
+    
+        fig_orders_visitors.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Count",
+            bargap=0.25,
+            height=450
+        )
+    
         st.plotly_chart(fig_orders_visitors, use_container_width=True)
+
 
 
 # ============================================================
