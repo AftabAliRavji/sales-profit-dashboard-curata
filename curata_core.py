@@ -657,9 +657,9 @@ def main_app():
             <style>
             .uploadedFileName, .stFileUploader label {
                 color: #111 !important;
-            font-weight: 500 !important;
-            font-size: 1rem !important;
-            color: #374151 !important;
+                font-weight: 500 !important;
+                font-size: 1rem !important;
+                color: #374151 !important;
             }
             .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
                 border: 2px dashed #9ca3af !important;
