@@ -184,9 +184,13 @@ def populate_from_structured_data(day_data_list):
     # Sort by date
     day_data_list = sorted(day_data_list, key=lambda d: d["date"])
 
-    # Set global controls
-    st.session_state["start_date"] = day_data_list[0]["date"]
-    st.session_state["days"] = len(day_data_list)
+    # Set global controls safely
+    st.session_state["import_start_date"] = day_data_list[0]["date"]
+    st.session_state["import_days"] = len(day_data_list)
+    
+    # Signal that UI widgets must sync to imported data
+    st.session_state["import_sync"] = True
+
 
     # Clear old dynamic state
     clear_day_state()
@@ -514,7 +518,15 @@ def main_app():
             )
 
         with col_b:
-            start_date = st.date_input("Select start date", key="start_date")
+        # Sync imported values into widgets
+        if st.session_state.get("import_sync"):
+            st.session_state["start_date"] = st.session_state["import_start_date"]
+            st.session_state["days"] = st.session_state["import_days"]
+            st.session_state["import_sync"] = False
+            st.rerun()
+        
+        start_date = st.date_input("Select start date", key="start_date")
+
 
         with col_c:
             fx_rate = st.number_input(
