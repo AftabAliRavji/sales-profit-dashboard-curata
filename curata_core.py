@@ -657,9 +657,7 @@ def main_app():
             <style>
             .uploadedFileName, .stFileUploader label {
                 color: #111 !important;
-                font-weight: 500 !important;
-                font-size: 1rem !important;
-                color: #374151 !important;
+                font-weight: 600 !important;
             }
             .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
                 border: 2px dashed #9ca3af !important;
@@ -677,6 +675,22 @@ def main_app():
                 border-radius: 6px !important;
                 border: none !important;
             }
+        /* Force Browse button to always show */
+        .stFileUploader label span {
+            visibility: visible !important;
+            opacity: 1 !important;
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            padding: 0.35rem 0.9rem !important;
+            border-radius: 6px !important;
+            border: none !important;
+        }   
+        .stFileUploader label {
+            font-weight: 500 !important;
+            font-size: 1rem !important;
+            color: #374151 !important;
+        }        
             </style>
             """,
             unsafe_allow_html=True,
