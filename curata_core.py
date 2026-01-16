@@ -422,6 +422,18 @@ def main_app():
             border-bottom: 2px solid #d1d5db !important;
             margin: 1rem 0 1.25rem 0 !important;
         }
+    /* Add the Browse button fix here */
+    .stFileUploader span button {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: inline-block !important;
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        padding: 0.4rem 1rem !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }        
         </style>
         """,
         unsafe_allow_html=True,
@@ -675,22 +687,6 @@ def main_app():
                 border-radius: 6px !important;
                 border: none !important;
             }
-        /* Force Browse button to always show */
-        .stFileUploader label span {
-            visibility: visible !important;
-            opacity: 1 !important;
-            background-color: #2563eb !important;
-            color: #ffffff !important;
-            font-weight: 600 !important;
-            padding: 0.35rem 0.9rem !important;
-            border-radius: 6px !important;
-            border: none !important;
-        }   
-        .stFileUploader label {
-            font-weight: 500 !important;
-            font-size: 1rem !important;
-            color: #374151 !important;
-        }        
             </style>
             """,
             unsafe_allow_html=True,
