@@ -718,7 +718,21 @@ def main_app():
     /* Hide Streamlit's built-in uploaded filename display */
     div[data-testid="stFileUploader"] > div > div:nth-of-type(2) {
         display: none !important;
-    }   
+    }
+    /* Style uploaded filename */
+    div[data-testid="stFileUploaderFileName"] {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Style uploaded file size */
+    div.stFileUploaderFileData small {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+    }
+    
             </style>
             """,
             unsafe_allow_html=True,
