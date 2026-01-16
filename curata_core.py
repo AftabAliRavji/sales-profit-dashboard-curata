@@ -707,6 +707,8 @@ def main_app():
         border-radius: 6px !important;
         border: none !important;
     }
+   /* Style uploaded filename */ 
+   .uploadedFileName { color: #ffffff !important; font-weight: 700 !important; font-size: 1rem !important; }    
             </style>
             """,
             unsafe_allow_html=True,
