@@ -715,7 +715,10 @@ def main_app():
         font-weight: 700 !important;
         font-size: 1rem !important;
     }
-   
+    /* Hide Streamlit's built-in uploaded filename display */
+    div[data-testid="stFileUploader"] > div > div:nth-of-type(2) {
+        display: none !important;
+    }   
             </style>
             """,
             unsafe_allow_html=True,
@@ -757,7 +760,16 @@ date,order_index,sales,profit,ad_spend,visitors
 
         if file_obj:
             file_name = file_obj.name.lower()
-            st.write(f"**File loaded:** {file_obj.name}")
+            file_size_kb = round(len(file_obj.getvalue()) / 1024, 1)
+            st.markdown(
+                f"""
+                <div style="margin-top: 0.4rem; font-weight: 700; color: #ffffff;">
+                    {file_obj.name} &nbsp; <span style="font-weight: 500;">{file_size_kb}KB</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
 
             # ---------------------- JSON IMPORT ---------------------- #
             if file_name.endswith(".json"):
