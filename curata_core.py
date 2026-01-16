@@ -22,7 +22,10 @@ USERS = {
 # ---------------------- Live FX rate ---------------------- #
 @st.cache_data(ttl=60 * 60)
 def fetch_live_fx_rate():
-    url = "https://api.exchangerate.host/latest?base=USD&symbols=GBP"
+    """
+    Fetches USD→GBP FX rate from a stable, free, reliable API.
+    """
+    url = "https://open.er-api.com/v6/latest/USD"
     try:
         resp = requests.get(url, timeout=5)
         if resp.status_code == 200:
@@ -1156,53 +1159,81 @@ date,order_index,sales,profit,ad_spend,visitors
     # ---------------------- Tab 8: Summary Charts ---------------------- #
     with tabs[7]:
         st.subheader("📊 Summary charts")
-
+    
+        # ============================
+        # Summary Charts
+        # ============================
+    
         df = st.session_state.get("daily_df", pd.DataFrame())
-
-        if df.empty:
-            st.info("No data yet. Fill in Inputs or Bulk Import.")
+        fx_rate = st.session_state.get("fx_rate", 0.0)
+    
+        # ============================
+        # Chart 1 — Summary Totals ($)
+        # ============================
+    
+        if not df.empty:
+            total_sales = df["Sales ($)"].sum()
+            total_profit = df["Profit ($)"].sum()
+    
+            summary_df = pd.DataFrame({
+                "Metric": ["Total Sales", "Total Profit"],
+                "Value": [total_sales, total_profit],
+                "Color": ["#2563eb", "#16a34a"]
+            })
+    
+            fig = px.bar(
+                summary_df,
+                x="Metric",
+                y="Value",
+                text="Value",
+                color="Metric",
+                color_discrete_map={
+                    "Total Sales": "#2563eb",
+                    "Total Profit": "#16a34a"
+                }
+            )
+    
+            fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+            fig.update_layout(
+                title="Summary Totals ($)",
+                xaxis_title="Metric",
+                yaxis_title="Amount ($)",
+                bargap=0.3,
+                height=450
+            )
+    
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            df_chart = df.copy()
-            df_chart["Date"] = pd.to_datetime(df_chart["Date"])
-
-            st.markdown("### Sales ($) over time")
-            fig_sales = px.line(
-                df_chart,
-                x="Date",
-                y="Sales ($)",
-                markers=True,
-                title="Daily Sales ($)",
-                color_discrete_sequence=["#2563eb"],
-            )
-            st.plotly_chart(fig_sales, use_container_width=True)
-
-            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-
-            st.markdown("### Profit ($) over time")
-            fig_profit = px.line(
-                df_chart,
-                x="Date",
-                y="Profit ($)",
-                markers=True,
-                title="Daily Profit ($)",
-                color_discrete_sequence=["#2563eb"],
-            )
-            st.plotly_chart(fig_profit, use_container_width=True)
-
-            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-
-            st.markdown("### Profit After Ads (£) over time")
-            fig_profit_ads = px.line(
-                df_chart,
+            st.info("No data available to generate summary chart.")
+    
+        # ============================
+        # Chart 2 — Daily Profit After Ads (£)
+        # ============================
+    
+        if not df.empty and fx_rate:
+            df_daily_gbp = df.copy()
+            df_daily_gbp["Profit After Ads (£)"] = df_daily_gbp["Profit After Ads ($)"] * fx_rate
+    
+            fig2 = px.bar(
+                df_daily_gbp,
                 x="Date",
                 y="Profit After Ads (£)",
-                markers=True,
-                title="Daily Profit After Ads (£)",
-                color_discrete_sequence=["#2563eb"],
+                text="Profit After Ads (£)",
+                color_discrete_sequence=["#7c3aed"]
             )
-            st.plotly_chart(fig_profit_ads, use_container_width=True)
-
-            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+    
+            fig2.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+            fig2.update_layout(
+                title="Daily Profit After Ads (£)",
+                xaxis_title="Date",
+                yaxis_title="Profit After Ads (£)",
+                bargap=0.3,
+                height=450
+            )
+    
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("No data available or FX rate missing for GBP chart.")
 
             st.markdown("### Orders vs Visitors")
             fig_orders_visitors = px.bar(
