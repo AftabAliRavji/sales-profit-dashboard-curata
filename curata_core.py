@@ -680,26 +680,43 @@ def main_app():
         st.markdown(
             """
             <style>
-            .uploadedFileName, .stFileUploader label {
-                color: #111 !important;
-                font-weight: 600 !important;
-            }
-            .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
-                border: 2px dashed #9ca3af !important;
-                padding: 1.2rem !important;
-                background-color: #f9fafb !important;
-            }
-            .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
-                opacity: 1 !important;
-            }
-            .stFileUploader label span {
-                background-color: #2563eb !important;
-                color: #ffffff !important;
-                font-weight: 600 !important;
-                padding: 0.35rem 0.9rem !important;
-                border-radius: 6px !important;
-                border: none !important;
-            }
+    /* Make label look like plain text */
+    .stFileUploader label {
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin-bottom: 0.4rem !important;
+        box-shadow: none !important;
+        cursor: default !important;
+        font-size: 1rem !important;
+        font-weight: 500 !important;
+        color: #374151 !important;
+    }
+
+    /* Style dropzone */
+    .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
+        border: 2px dashed #9ca3af !important;
+        padding: 1.2rem !important;
+        background-color: #f9fafb !important;
+    }
+
+    /* Ensure dropzone icon is visible */
+    .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
+        opacity: 1 !important;
+    }
+
+    /* Style Browse button */
+    .stFileUploader span button {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: inline-block !important;
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        padding: 0.35rem 0.9rem !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
             </style>
             """,
             unsafe_allow_html=True,
