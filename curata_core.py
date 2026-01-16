@@ -422,6 +422,11 @@ def main_app():
             border-bottom: 2px solid #d1d5db !important;
             margin: 1rem 0 1.25rem 0 !important;
         }
+        .stFileUploader label {
+            font-weight: 500 !important;
+            font-size: 1rem !important;
+            color: #374151 !important;
+        }        
     /* Add the Browse button fix here */
     .stFileUploader span button {
         visibility: visible !important;
