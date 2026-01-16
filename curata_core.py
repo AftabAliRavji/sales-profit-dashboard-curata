@@ -1156,25 +1156,25 @@ date,order_index,sales,profit,ad_spend,visitors
 
         if st.button("🧹 Reset session state"):
             reset_session_state()
-    # ---------------------- Tab 8: Summary Charts ---------------------- #
-    with tabs[7]:
-        st.subheader("📊 Summary charts")
-    
-        # ============================
-        # Summary Charts
-        # ============================
-    
-        df = st.session_state.get("daily_df", pd.DataFrame())
-        fx_rate = st.session_state.get("fx_rate", 0.0)
-            
-            # ============================
-            # Chart 1 — Daily Sales & Profit ($)
-            # ============================
-            
+# ---------------------- Tab 8: Summary Charts ---------------------- #
+with tabs[7]:
+    st.subheader("📊 Summary charts")
+
+    # ============================
+    # Summary Charts
+    # ============================
+
+    df = st.session_state.get("daily_df", pd.DataFrame())
+    fx_rate = st.session_state.get("fx_rate", 0.0)
+
+    # ============================
+    # Chart 1 — Daily Sales & Profit ($)
+    # ============================
+
     if not df.empty:
         df_daily = df.copy()
         df_daily["Date"] = pd.to_datetime(df_daily["Date"])
-    
+
         fig_daily = px.bar(
             df_daily,
             x="Date",
@@ -1182,11 +1182,11 @@ date,order_index,sales,profit,ad_spend,visitors
             barmode="group",
             title="Daily Sales & Profit ($)",
             color_discrete_map={
-                "Sales ($)": "#2563eb",   # blue
-                "Profit ($)": "#16a34a"   # green
+                "Sales ($)": "#2563eb",
+                "Profit ($)": "#16a34a"
             }
         )
-    
+
         fig_daily.update_traces(texttemplate="%{y:.2f}", textposition="outside")
         fig_daily.update_layout(
             xaxis_title="Date",
@@ -1194,28 +1194,27 @@ date,order_index,sales,profit,ad_spend,visitors
             bargap=0.25,
             height=450
         )
-    
+
         st.plotly_chart(fig_daily, use_container_width=True)
     else:
         st.info("No data available to generate daily sales/profit chart.")
-    
-    
+
     # ============================
     # Chart 2 — Daily Profit After Ads (£)
     # ============================
-    
+
     if not df.empty and fx_rate:
         df_daily_gbp = df.copy()
         df_daily_gbp["Profit After Ads (£)"] = df_daily_gbp["Profit After Ads ($)"] * fx_rate
-    
+
         fig2 = px.bar(
             df_daily_gbp,
             x="Date",
             y="Profit After Ads (£)",
             text="Profit After Ads (£)",
-            color_discrete_sequence=["#7c3aed"]  # purple
+            color_discrete_sequence=["#7c3aed"]
         )
-    
+
         fig2.update_traces(texttemplate="%{text:.2f}", textposition="outside")
         fig2.update_layout(
             title="Daily Profit After Ads (£)",
@@ -1224,22 +1223,21 @@ date,order_index,sales,profit,ad_spend,visitors
             bargap=0.3,
             height=450
         )
-    
+
         st.plotly_chart(fig2, use_container_width=True)
     else:
         st.info("No data available or FX rate missing for GBP chart.")
 
-
     # ============================
     # Orders vs Visitors (Grouped Bar Chart)
     # ============================
-    
+
     if not df.empty:
         df_chart = df.copy()
         df_chart["Date"] = pd.to_datetime(df_chart["Date"])
-    
+
         st.markdown("### Orders vs Visitors")
-    
+
         fig_orders_visitors = px.bar(
             df_chart,
             x="Date",
@@ -1248,20 +1246,19 @@ date,order_index,sales,profit,ad_spend,visitors
             title="Orders vs Visitors",
             color_discrete_sequence=["#2563eb", "#4b5563"],
         )
-    
-        # Add labels above each bar
+
         fig_orders_visitors.update_traces(
             texttemplate="%{y}",
             textposition="outside"
         )
-    
+
         fig_orders_visitors.update_layout(
             xaxis_title="Date",
             yaxis_title="Count",
             bargap=0.25,
             height=450
         )
-    
+
         st.plotly_chart(fig_orders_visitors, use_container_width=True)
 
 
