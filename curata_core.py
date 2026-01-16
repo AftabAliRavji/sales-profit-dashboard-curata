@@ -520,7 +520,7 @@ def main_app():
         with col_b:
             # Use imported value as default, without overwriting widget key
             if st.session_state.get("import_sync"):
-                start_date = st.date_input("Select start date", value=st.session_state["import_start_date"], key="start_date")
+                st.session_state["start_date"] = st.session_state["import_start_date"]
                 st.session_state["days"] = st.session_state["import_days"]
                 st.session_state["visitors_per_day"] = st.session_state["import_visitors_per_day"]
                 st.session_state["import_sync"] = False
