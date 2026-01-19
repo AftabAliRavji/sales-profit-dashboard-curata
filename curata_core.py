@@ -393,14 +393,15 @@ def logout_button():
 def main_app():
     init_default_state()
 
-    # Auto-restore session once after login
-    if "session_restored" not in st.session_state:
+    # Auto-restore session only AFTER login
+    if st.session_state.get("authenticated") and "session_restored" not in st.session_state:
         if os.path.exists(SESSION_FILE):
             try:
                 load_session_from_file()
             except Exception:
                 pass
         st.session_state["session_restored"] = True
+
 
     # ---------------------- Global CSS ---------------------- #
     st.markdown(
