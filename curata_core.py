@@ -385,6 +385,7 @@ def logout_button():
 # ============================================================
 
 def main_app():
+    st.write("Secrets keys:", list(st.secrets.keys()))
     init_default_state()
 
     # Auto-restore session only AFTER login, from Supabase
@@ -1247,3 +1248,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
