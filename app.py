@@ -240,6 +240,27 @@ div[data-testid="stFormSubmitButton"] {
 }
 
 /* ------------------------------
+   SIDEBAR BUTTONS
+------------------------------ */
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    border: none !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #1d4ed8 !important;
+}
+
+
+/* ------------------------------
    EXPANDERS
 ------------------------------ */
 div.stExpander[data-testid="stExpander"] {
