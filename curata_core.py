@@ -2,16 +2,15 @@ import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 import json
-import os
 import requests
 import plotly.express as px
 
+from supabase_client import load_session_from_supabase, save_session_to_supabase
+
 # ============================================================
 #  Curata Dashboard — Core Logic (Rebuilt & Polished)
-#  Part 1 of 6
+#  Supabase-integrated version
 # ============================================================
-
-SESSION_FILE = "curata_session.json"
 
 # ---------------------- Auth config ---------------------- #
 USERS = {
@@ -41,18 +40,31 @@ def fetch_live_fx_rate():
 def get_app_state_keys():
     keys = []
     for k in st.session_state.keys():
-        if k in ["authenticated", "auth_user"]:
-            continue  # skip login flags
+        if k in ["authenticated", "auth_user", "session_restored"]:
+            continue  # skip login/meta flags
         if (
             k.startswith("orders_day_")
             or k.startswith("day_")
             or k.startswith("ad_spend_day_")
-            or k in ["days", "start_date", "fx_rate", "default_ad_spend", "visitors_per_day"]
+            or k.startswith("expander_open_day_")
+            or k in [
+                "days",
+                "start_date",
+                "fx_rate",
+                "default_ad_spend",
+                "visitors_per_day",
+                "daily_df",
+                "import_start_date",
+                "import_days",
+                "import_visitors_per_day",
+                "import_sync",
+                "uploaded_bulk_file",
+                "json_preview_raw",
+                "csv_preview",
+            ]
         ):
             keys.append(k)
     return keys
-
-
 
 def export_session_state_dict():
     data = {}
@@ -66,43 +78,25 @@ def export_session_state_dict():
             data[k] = v
     return data
 
-
-def save_session_to_file():
-    data = export_session_state_dict()
-    try:
-        with open(SESSION_FILE, "w") as f:
-            json.dump(data, f)
-        st.success("Session saved on server.")
-    except Exception:
-        st.warning("Could not save session to server.")
-
-
-def load_session_from_file():
-    if not os.path.exists(SESSION_FILE):
-        st.warning("No saved session found on the server.")
+def apply_session_dict(data: dict):
+    """
+    Apply a session dict (from Supabase or uploaded JSON) into st.session_state,
+    safely handling dates and skipping auth flags.
+    """
+    if not isinstance(data, dict):
         return
-    try:
-        with open(SESSION_FILE, "r") as f:
-            data = json.load(f)
-        for k, v in data.items():
-        
-            # 🚫 SAFEGUARD: never restore login flags
-            if k in ["authenticated", "auth_user"]:
-                continue
-        
-            if k == "start_date":
-                try:
-                    st.session_state[k] = pd.to_datetime(v).date()
-                except Exception:
-                    st.session_state[k] = v
-            else:
+
+    for k, v in data.items():
+        if k in ["authenticated", "auth_user", "session_restored"]:
+            continue
+
+        if k == "start_date":
+            try:
+                st.session_state[k] = pd.to_datetime(v).date()
+            except Exception:
                 st.session_state[k] = v
-
-        st.success("Session loaded from server. Rerunning…")
-        st.rerun()
-    except Exception as e:
-        st.warning(f"Could not load session: {e}")
-
+        else:
+            st.session_state[k] = v
 
 def load_session_from_uploaded_json(uploaded_file):
     try:
@@ -116,21 +110,11 @@ def load_session_from_uploaded_json(uploaded_file):
         return
 
     try:
-        for k, v in data.items():
-            if k in ["authenticated", "auth_user"]:
-                continue
-            if k == "start_date":
-                try:
-                    st.session_state[k] = pd.to_datetime(v).date()
-                except Exception:
-                    st.session_state[k] = v
-            else:
-                st.session_state[k] = v
+        apply_session_dict(data)
         st.success("Session restored from uploaded file. Rerunning…")
         st.rerun()
     except Exception as e:
         st.warning(f"Could not apply uploaded session: {e}")
-
 
 def reset_session_state():
     for k in get_app_state_keys():
@@ -139,7 +123,6 @@ def reset_session_state():
         st.session_state.pop(meta_key, None)
     st.success("Session state reset. Rerunning…")
     st.rerun()
-
 
 def init_default_state():
     if "days" not in st.session_state:
@@ -153,7 +136,6 @@ def init_default_state():
         st.session_state["default_ad_spend"] = 64.0
     if "visitors_per_day" not in st.session_state:
         st.session_state["visitors_per_day"] = 1
-
 
 def init_day_state(day_index: int):
     key_orders = f"orders_day_{day_index}"
@@ -174,7 +156,6 @@ def clear_day_state():
             or k.startswith("expander_open_day_")
         ):
             st.session_state.pop(k, None)
-
 
 def populate_from_structured_data(day_data_list):
     """
@@ -201,10 +182,9 @@ def populate_from_structured_data(day_data_list):
     # Set global controls safely
     st.session_state["import_start_date"] = day_data_list[0]["date"]
     st.session_state["import_days"] = len(day_data_list)
-    
+
     # Signal that UI widgets must sync to imported data
     st.session_state["import_sync"] = True
-
 
     # Clear old dynamic state
     clear_day_state()
@@ -236,6 +216,7 @@ def populate_from_structured_data(day_data_list):
 
     st.success("Bulk data imported successfully. Reloading…")
     st.rerun()
+
 # ============================================================
 #  Curata Dashboard — Core Logic (Rebuilt & Polished)
 #  Part 2 of 6
@@ -305,7 +286,6 @@ def parse_json_bulk(file):
 
     populate_from_structured_data(day_data_list)
 
-
 def parse_csv_bulk(file):
     """
     Parses a CSV file in the format:
@@ -370,7 +350,6 @@ def init_auth_state():
     if "auth_user" not in st.session_state:
         st.session_state["auth_user"] = None
 
-
 def login_screen():
     st.title("Curata Dashboard Login")
     st.write("Access is restricted. Please log in to continue.")
@@ -389,30 +368,33 @@ def login_screen():
         else:
             st.error("Invalid username or password.")
 
-
 def logout_button():
     if st.sidebar.button("Log out"):
+        # Before logging out, save the latest session to Supabase
+        if st.session_state.get("authenticated") and st.session_state.get("auth_user"):
+            session_dict = export_session_state_dict()
+            save_session_to_supabase(st.session_state["auth_user"], session_dict)
+
         st.session_state["authenticated"] = False
         st.session_state["auth_user"] = None
+        st.session_state.pop("session_restored", None)
         st.rerun()
 
 # ============================================================
 #  Main app — header, sidebar, tabs, and Tab 1 (Inputs)
-#  Part 2 continues into Part 3
 # ============================================================
 
 def main_app():
     init_default_state()
 
-    # Auto-restore session only AFTER login
+    # Auto-restore session only AFTER login, from Supabase
     if st.session_state.get("authenticated") and "session_restored" not in st.session_state:
-        if os.path.exists(SESSION_FILE):
-            try:
-                load_session_from_file()
-            except Exception:
-                pass
+        user_id = st.session_state.get("auth_user")
+        if user_id:
+            data = load_session_from_supabase(user_id)
+            if data:
+                apply_session_dict(data)
         st.session_state["session_restored"] = True
-
 
     # ---------------------- Global CSS ---------------------- #
     st.markdown(
@@ -441,37 +423,35 @@ def main_app():
             border-bottom: 2px solid #d1d5db !important;
             margin: 1rem 0 1.25rem 0 !important;
         }
-    /* Make the uploader label look like plain text instead of a button */
-    .stFileUploader label {
-        background: none !important;
-        border: none !important;
-        padding: 0 !important;
-        margin-bottom: 0.4rem !important;
-        box-shadow: none !important;
-        cursor: default !important;
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-        color: #374151 !important; /* slate-700 */
-    }
+        /* Make the uploader label look like plain text instead of a button */
+        .stFileUploader label {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin-bottom: 0.4rem !important;
+            box-shadow: none !important;
+            cursor: default !important;
+            font-size: 1rem !important;
+            font-weight: 600 !important;
+            color: #374151 !important; /* slate-700 */
+        }
 
-    /* Add the Browse button fix here */
-    .stFileUploader span button {
-        visibility: visible !important;
-        opacity: 1 !important;
-        display: inline-block !important;
-        background-color: #2563eb !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        padding: 0.4rem 1rem !important;
-        border-radius: 6px !important;
-        border: none !important;
-    }        
+        /* Add the Browse button fix here */
+        .stFileUploader span button {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: inline-block !important;
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            padding: 0.4rem 1rem !important;
+            border-radius: 6px !important;
+            border: none !important;
+        }        
         </style>
         """,
         unsafe_allow_html=True,
     )
-
-
 
     # ---------------------- Header ---------------------- #
     st.markdown(
@@ -510,7 +490,6 @@ def main_app():
             "Summaries",
             "Export",
             "Session JSON",
-            "Session Controls",
             "Summary Charts",
         ]
     )
@@ -698,6 +677,7 @@ def main_app():
         st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
+
     # ---------------------- Tab 2: Bulk Import ---------------------- #
     with tabs[1]:
         st.subheader("📥 Bulk import daily data (JSON or CSV)")
@@ -809,7 +789,6 @@ date,order_index,sales,profit,ad_spend,visitors
                 """,
                 unsafe_allow_html=True,
             )
-
 
             # ---------------------- JSON IMPORT ---------------------- #
             if file_name.endswith(".json"):
@@ -1093,6 +1072,7 @@ date,order_index,sales,profit,ad_spend,visitors
                 .rename(columns={"Date": "Year"})
             )
             st.dataframe(yearly, use_container_width=True)
+
     # ---------------------- Tab 5: Export ---------------------- #
     with tabs[4]:
         st.subheader("📤 Export data")
@@ -1147,67 +1127,22 @@ date,order_index,sales,profit,ad_spend,visitors
         if uploaded_session is not None:
             if st.button("Restore session from uploaded file"):
                 load_session_from_uploaded_json(uploaded_session)
-                
-        st.subheader("📄 Raw session file contents")
-        if os.path.exists(SESSION_FILE):
-            try:
-                with open(SESSION_FILE, "r") as f:
-                    raw = json.load(f)
-                st.json(raw)
-            except Exception as e:
-                st.warning(f"Could not read session file: {e}")
-        else:
-            st.info("No saved session file found.")
-                
 
-    # ---------------------- Tab 7: Session Controls ---------------------- #
+    # ---------------------- Tab 7: Summary Charts ---------------------- #
     with tabs[6]:
-        st.subheader("🛠️ Session controls")
-
-        st.markdown("Use these tools to manage your dashboard session.")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("💾 Save session to server"):
-                save_session_to_file()
-
-        with col2:
-            if st.button("📂 Load session from server"):
-                load_session_from_file()
-
-        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-
-        if st.button("🧹 Reset session state"):
-            reset_session_state()
-    
-        # 🗑️ TEMPORARY: delete corrupted session file
-        if st.button("🗑️ Delete saved session file"):
-            try:
-                os.remove(SESSION_FILE)
-                st.success("Saved session file deleted.")
-            except Exception:
-                st.warning("Could not delete session file.")
-
-# ---------------------- Tab 8: Summary Charts ---------------------- #
-    with tabs[7]:
         st.subheader("📊 Summary charts")
-    
-        # ============================
-        # Summary Charts
-        # ============================
-    
+
         df = st.session_state.get("daily_df", pd.DataFrame())
         fx_rate = st.session_state.get("fx_rate", 0.0)
-    
+
         # ============================
         # Chart 1 — Daily Sales & Profit ($)
         # ============================
-    
+
         if not df.empty:
             df_daily = df.copy()
             df_daily["Date"] = pd.to_datetime(df_daily["Date"])
-    
+
             fig_daily = px.bar(
                 df_daily,
                 x="Date",
@@ -1219,7 +1154,7 @@ date,order_index,sales,profit,ad_spend,visitors
                     "Profit ($)": "#16a34a"
                 }
             )
-    
+
             fig_daily.update_traces(texttemplate="%{y:.2f}", textposition="outside")
             fig_daily.update_layout(
                 xaxis_title="Date",
@@ -1227,19 +1162,19 @@ date,order_index,sales,profit,ad_spend,visitors
                 bargap=0.25,
                 height=450
             )
-    
+
             st.plotly_chart(fig_daily, use_container_width=True)
         else:
             st.info("No data available to generate daily sales/profit chart.")
-    
+
         # ============================
         # Chart 2 — Daily Profit After Ads (£)
         # ============================
-    
+
         if not df.empty and fx_rate:
             df_daily_gbp = df.copy()
             df_daily_gbp["Profit After Ads (£)"] = df_daily_gbp["Profit After Ads ($)"] * fx_rate
-    
+
             fig2 = px.bar(
                 df_daily_gbp,
                 x="Date",
@@ -1247,7 +1182,7 @@ date,order_index,sales,profit,ad_spend,visitors
                 text="Profit After Ads (£)",
                 color_discrete_sequence=["#7c3aed"]
             )
-    
+
             fig2.update_traces(texttemplate="%{text:.2f}", textposition="outside")
             fig2.update_layout(
                 title="Daily Profit After Ads (£)",
@@ -1256,21 +1191,21 @@ date,order_index,sales,profit,ad_spend,visitors
                 bargap=0.3,
                 height=450
             )
-    
+
             st.plotly_chart(fig2, use_container_width=True)
         else:
             st.info("No data available or FX rate missing for GBP chart.")
-    
+
         # ============================
         # Orders vs Visitors (Grouped Bar Chart)
         # ============================
-    
+
         if not df.empty:
             df_chart = df.copy()
             df_chart["Date"] = pd.to_datetime(df_chart["Date"])
-    
+
             st.markdown("### Orders vs Visitors")
-    
+
             fig_orders_visitors = px.bar(
                 df_chart,
                 x="Date",
@@ -1279,23 +1214,36 @@ date,order_index,sales,profit,ad_spend,visitors
                 title="Orders vs Visitors",
                 color_discrete_sequence=["#2563eb", "#4b5563"],
             )
-    
+
             fig_orders_visitors.update_traces(
                 texttemplate="%{y}",
                 textposition="outside"
             )
-    
+
             fig_orders_visitors.update_layout(
                 xaxis_title="Date",
                 yaxis_title="Count",
                 bargap=0.25,
                 height=450
             )
-    
+
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
 
-
+    # ---------------------- Auto-save to Supabase ---------------------- #
+    if st.session_state.get("authenticated") and st.session_state.get("auth_user"):
+        session_dict = export_session_state_dict()
+        save_session_to_supabase(st.session_state["auth_user"], session_dict)
 
 # ============================================================
-#  END OF FILE — Curata Dashboard (Rebuilt & Polished)
+#  END OF FILE — Curata Dashboard (Supabase-integrated)
 # ============================================================
+
+def main():
+    init_auth_state()
+    if not st.session_state.get("authenticated"):
+        login_screen()
+    else:
+        main_app()
+
+if __name__ == "__main__":
+    main()
