@@ -117,6 +117,8 @@ def load_session_from_uploaded_json(uploaded_file):
 
     try:
         for k, v in data.items():
+            if k in ["authenticated", "auth_user"]:
+                continue
             if k == "start_date":
                 try:
                     st.session_state[k] = pd.to_datetime(v).date()
@@ -1145,6 +1147,18 @@ date,order_index,sales,profit,ad_spend,visitors
         if uploaded_session is not None:
             if st.button("Restore session from uploaded file"):
                 load_session_from_uploaded_json(uploaded_session)
+                
+        st.subheader("📄 Raw session file contents")
+        if os.path.exists(SESSION_FILE):
+            try:
+                with open(SESSION_FILE, "r") as f:
+                    raw = json.load(f)
+                st.json(raw)
+            except Exception as e:
+                st.warning(f"Could not read session file: {e}")
+        else:
+            st.info("No saved session file found.")
+                
 
     # ---------------------- Tab 7: Session Controls ---------------------- #
     with tabs[6]:
