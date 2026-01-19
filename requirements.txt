@@ -6,13 +6,8 @@ python-dateutil
 pytz
 numpy
 
-# Supabase + dependencies (pinned for Streamlit Cloud)
-supabase-py==2.4.3
-postgrest==0.13.0
-gotrue==2.4.3
-storage3==0.7.3
-realtime==1.0.0
+# NEW Supabase client (works on Python 3.13)
+supabase
 
-# force rebuild
 
 
