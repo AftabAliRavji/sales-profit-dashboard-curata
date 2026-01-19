@@ -1,5 +1,43 @@
 import streamlit as st
-from curata_core import init_auth_state, login_screen, main_app
+from curata_core import init_auth_state, main_app   # removed login_screen import
+
+# ---------------------- Login System ---------------------- #
+def login_screen():
+    st.title("Curata Dashboard Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        normalized = username.strip().lower()
+
+        # User 1
+        if (
+            normalized == st.secrets["auth"]["user1"].lower()
+            and password == st.secrets["auth"]["pass1"]
+        ):
+            st.session_state["authenticated"] = True
+            st.session_state["user_id"] = normalized
+            st.rerun()
+
+        # User 2
+        elif (
+            normalized == st.secrets["auth"]["user2"].lower()
+            and password == st.secrets["auth"]["pass2"]
+        ):
+            st.session_state["authenticated"] = True
+            st.session_state["user_id"] = normalized
+            st.rerun()
+
+        else:
+            st.error("Invalid username or password")
+
+
+def logout():
+    st.session_state["authenticated"] = False
+    st.session_state["user_id"] = None
+    st.rerun()
+
 
 # ---------------------- Page config ---------------------- #
 st.set_page_config(
