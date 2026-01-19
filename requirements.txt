@@ -6,7 +6,7 @@ python-dateutil
 pytz
 numpy
 
-# NEW Supabase client (works on Python 3.13)
+# NEW Supabase client (works on Python 3.13) to work with latest supabase as well
 supabase
 
 
