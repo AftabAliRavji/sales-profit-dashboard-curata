@@ -9,14 +9,16 @@ from supabase_client import load_session_from_supabase, save_session_to_supabase
 
 # ============================================================
 #  Curata Dashboard — Core Logic (Rebuilt & Polished)
-#  Supabase-integrated version
+#  Supabase-integrated version (login handled in app.py)
 # ============================================================
 
-# ---------------------- Auth config ---------------------- #
-USERS = {
-    st.secrets["auth"]["user1"]: st.secrets["auth"]["pass1"],
-    st.secrets["auth"]["user2"]: st.secrets["auth"]["pass2"],
-}
+# ---------------------- Auth state init ---------------------- #
+def init_auth_state():
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+    if "user_id" not in st.session_state:
+        st.session_state["user_id"] = None
+
 
 # ---------------------- Live FX rate ---------------------- #
 @st.cache_data(ttl=60 * 60)
@@ -36,12 +38,14 @@ def fetch_live_fx_rate():
         pass
     return None
 
+
 # ---------------------- Session helpers ---------------------- #
 def get_app_state_keys():
     keys = []
     for k in st.session_state.keys():
-        if k in ["authenticated", "auth_user", "session_restored"]:
-            continue  # skip login/meta flags
+        # skip auth/meta flags
+        if k in ["authenticated", "user_id", "session_restored"]:
+            continue
         if (
             k.startswith("orders_day_")
             or k.startswith("day_")
@@ -66,6 +70,7 @@ def get_app_state_keys():
             keys.append(k)
     return keys
 
+
 def export_session_state_dict():
     data = {}
     for k in get_app_state_keys():
@@ -78,6 +83,7 @@ def export_session_state_dict():
             data[k] = v
     return data
 
+
 def apply_session_dict(data: dict):
     """
     Apply a session dict (from Supabase or uploaded JSON) into st.session_state,
@@ -87,7 +93,7 @@ def apply_session_dict(data: dict):
         return
 
     for k, v in data.items():
-        if k in ["authenticated", "auth_user", "session_restored"]:
+        if k in ["authenticated", "user_id", "session_restored"]:
             continue
 
         if k == "start_date":
@@ -97,6 +103,7 @@ def apply_session_dict(data: dict):
                 st.session_state[k] = v
         else:
             st.session_state[k] = v
+
 
 def load_session_from_uploaded_json(uploaded_file):
     try:
@@ -116,6 +123,7 @@ def load_session_from_uploaded_json(uploaded_file):
     except Exception as e:
         st.warning(f"Could not apply uploaded session: {e}")
 
+
 def reset_session_state():
     for k in get_app_state_keys():
         st.session_state.pop(k, None)
@@ -123,6 +131,7 @@ def reset_session_state():
         st.session_state.pop(meta_key, None)
     st.success("Session state reset. Rerunning…")
     st.rerun()
+
 
 def init_default_state():
     if "days" not in st.session_state:
@@ -137,10 +146,12 @@ def init_default_state():
     if "visitors_per_day" not in st.session_state:
         st.session_state["visitors_per_day"] = 1
 
+
 def init_day_state(day_index: int):
     key_orders = f"orders_day_{day_index}"
     if key_orders not in st.session_state:
         st.session_state[key_orders] = 1
+
 
 # ---------------------- Bulk import helpers ---------------------- #
 def clear_day_state():
@@ -156,6 +167,7 @@ def clear_day_state():
             or k.startswith("expander_open_day_")
         ):
             st.session_state.pop(k, None)
+
 
 def populate_from_structured_data(day_data_list):
     """
@@ -216,6 +228,7 @@ def populate_from_structured_data(day_data_list):
 
     st.success("Bulk data imported successfully. Reloading…")
     st.rerun()
+
 
 # ============================================================
 #  Curata Dashboard — Core Logic (Rebuilt & Polished)
@@ -286,6 +299,7 @@ def parse_json_bulk(file):
 
     populate_from_structured_data(day_data_list)
 
+
 def parse_csv_bulk(file):
     """
     Parses a CSV file in the format:
@@ -343,54 +357,20 @@ def parse_csv_bulk(file):
 
     populate_from_structured_data(day_data_list)
 
-# ---------------------- Auth helpers ---------------------- #
-def init_auth_state():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "auth_user" not in st.session_state:
-        st.session_state["auth_user"] = None
-
-def login_screen():
-    st.title("Curata Dashboard Login")
-    st.write("Access is restricted. Please log in to continue.")
-
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Log in", type="primary")
-
-    if submit:
-        if username in USERS and USERS[username] == password:
-            st.session_state["authenticated"] = True
-            st.session_state["auth_user"] = username
-            st.success(f"Welcome, {username}. Loading dashboard…")
-            st.rerun()
-        else:
-            st.error("Invalid username or password.")
-
-def logout_button():
-    if st.sidebar.button("Log out"):
-        # Before logging out, save the latest session to Supabase
-        if st.session_state.get("authenticated") and st.session_state.get("auth_user"):
-            session_dict = export_session_state_dict()
-            save_session_to_supabase(st.session_state["auth_user"], session_dict)
-
-        st.session_state["authenticated"] = False
-        st.session_state["auth_user"] = None
-        st.session_state.pop("session_restored", None)
-        st.rerun()
 
 # ============================================================
 #  Main app — header, sidebar, tabs, and Tab 1 (Inputs)
 # ============================================================
 
 def main_app():
+    # Debug line to confirm user_id
     st.write("Logged in as:", st.session_state.get("user_id"))
+
     init_default_state()
 
-    # Auto-restore session only AFTER login, from Supabase
+    # Auto-restore session only AFTER login, from Supabase (once per session)
     if st.session_state.get("authenticated") and "session_restored" not in st.session_state:
-        user_id = st.session_state.get("auth_user")
+        user_id = st.session_state.get("user_id")
         if user_id:
             data = load_session_from_supabase(user_id)
             if data:
@@ -470,7 +450,7 @@ def main_app():
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
     # ---------------------- Sidebar ---------------------- #
-    st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('auth_user', 'Unknown')}")
+    st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('user_id', 'Unknown')}")
 
     if st.sidebar.button("Refresh FX rate (USD → GBP)"):
         new_rate = fetch_live_fx_rate()
@@ -480,7 +460,17 @@ def main_app():
         else:
             st.sidebar.warning("Could not fetch live FX rate. Keeping existing value.")
 
-    logout_button()
+    # Sidebar logout (Option B)
+    if st.sidebar.button("Log out"):
+        # Save latest session to Supabase before logging out
+        if st.session_state.get("authenticated") and st.session_state.get("user_id"):
+            session_dict = export_session_state_dict()
+            save_session_to_supabase(st.session_state["user_id"], session_dict)
+
+        st.session_state["authenticated"] = False
+        st.session_state["user_id"] = None
+        st.session_state.pop("session_restored", None)
+        st.rerun()
 
     # ---------------------- Tabs ---------------------- #
     tabs = st.tabs(
@@ -1232,27 +1222,11 @@ date,order_index,sales,profit,ad_spend,visitors
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
 
     # ---------------------- Auto-save to Supabase ---------------------- #
-    if st.session_state.get("authenticated") and st.session_state.get("auth_user"):
+    if st.session_state.get("authenticated") and st.session_state.get("user_id"):
         session_dict = export_session_state_dict()
-        save_session_to_supabase(st.session_state["auth_user"], session_dict)
+        save_session_to_supabase(st.session_state["user_id"], session_dict)
 
 # ============================================================
 #  END OF FILE — Curata Dashboard (Supabase-integrated)
+#  (Entry point is app.py)
 # ============================================================
-
-def main():
-    init_auth_state()
-    if not st.session_state.get("authenticated"):
-        login_screen()
-    else:
-        main_app()
-
-if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-
