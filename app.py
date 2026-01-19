@@ -220,8 +220,9 @@ div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBas
     background-color: #1d4ed8 !important;
 }
 
+/* Global + form submit buttons */
 .stButton > button,
-button[data-testid="formSubmitButton"] {
+div[data-testid="formSubmitButton"] > button {
     background-color: #2563eb !important;
     color: #ffffff !important;
     font-weight: 700 !important;
@@ -232,18 +233,20 @@ button[data-testid="formSubmitButton"] {
     opacity: 1 !important;
     visibility: visible !important;
 }
+
 .stButton > button:hover,
-button[data-testid="formSubmitButton"]:hover {
+div[data-testid="formSubmitButton"] > button:hover {
     background-color: #1d4ed8 !important;
 }
 
-/* Remove white wrapper div around form submit buttons */
-button[data-testid="formSubmitButton"] + div {
+/* Remove white wrapper around form submit buttons */
+div[data-testid="formSubmitButton"] {
     background-color: transparent !important;
 }
 div.stButton {
     background-color: transparent !important;
 }
+
 
 /* ------------------------------
    EXPANDERS (MATCHING YOUR DOM)
