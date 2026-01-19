@@ -46,6 +46,25 @@ pass1 = "cuarataAdmin1214"
 
 user2 = "mravji"
 pass2 = "curataAdmin786"
+SUPABASE_URL ="https://nrlibotwtsenhidyzhvt.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ybGlib3R3dHNlbmhpZHl6aHZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4Mzc2MzQsImV4cCI6MjA4NDQxMzYzNH0.zmRpn3MBZoSni-Eefk2SOy_o9WZYAPpFPJhHkBOsopo"
+
+## reuirements.txt for dependencies
+streamlit>=1.30
+pandas>=1.5
+plotly>=5.0
+requests>=2.0
+python-dateutil
+pytz
+numpy
+
+# Supabase + dependencies (pinned for Streamlit Cloud)
+supabase-py==2.4.3
+postgrest==0.13.0
+gotrue==2.4.3
+storage3==0.7.3
+realtime==1.0.0
+
 
 ## old comments - of breakdown od updates in this app
 This file contains python code for an app which creates the following - 
