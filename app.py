@@ -199,25 +199,13 @@ h1, h2, h3, h4, h5 {
 }
 
 /* ------------------------------
-   BUTTONS (GLOBAL + EXPORT + LOGIN)
+   UNIVERSAL BUTTON STYLING
 ------------------------------ */
-div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"] {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"]:hover {
-    background-color: #1d4ed8 !important;
-}
-
-/* ------------------------------
-   FIXED LOGIN BUTTON (CORRECT SELECTOR)
------------------------------- */
-div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-secondaryFormSubmit"] {
+.stButton > button,
+div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-secondaryFormSubmit"],
+section[data-testid="stSidebar"] .stButton > button,
+button[data-testid="stBaseButton-secondary"],
+button[data-testid="stBaseButton-secondaryFormSubmit"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
     font-weight: 700 !important;
@@ -230,34 +218,14 @@ div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-seconda
     display: inline-block !important;
 }
 
-div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
+.stButton > button:hover,
+div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-secondaryFormSubmit"]:hover,
+section[data-testid="stSidebar"] .stButton > button:hover,
+button[data-testid="stBaseButton-secondary"]:hover,
+button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
     background-color: #1d4ed8 !important;
 }
 
-/* Remove wrapper background */
-div[data-testid="stFormSubmitButton"] {
-    background-color: transparent !important;
-}
-
-/* ------------------------------
-   SIDEBAR BUTTONS
------------------------------- */
-section[data-testid="stSidebar"] .stButton > button {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    border: none !important;
-    box-shadow: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    display: inline-block !important;
-}
-
-section[data-testid="stSidebar"] .stButton > button:hover {
-    background-color: #1d4ed8 !important;
-}
 
 
 /* ------------------------------
