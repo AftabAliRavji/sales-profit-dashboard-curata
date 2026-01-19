@@ -5,10 +5,18 @@ from curata_core import init_auth_state, main_app   # removed login_screen impor
 def login_screen():
     st.title("Curata Dashboard Login")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    # Password visibility toggle
+    show_password = st.checkbox("Show password", value=False)
 
-    if st.button("Login"):
+    with st.form("login_form"):
+        username = st.text_input("Username", autofocus=True)
+        password = st.text_input(
+            "Password",
+            type="text" if show_password else "password"
+        )
+        submit = st.form_submit_button("Login")
+
+    if submit:
         normalized = username.strip().lower()
 
         # User 1
@@ -31,6 +39,7 @@ def login_screen():
 
         else:
             st.error("Invalid username or password")
+
 
 
 def logout():
