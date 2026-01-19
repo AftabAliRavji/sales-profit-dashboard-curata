@@ -8,11 +8,26 @@ def login_screen():
     # Password visibility toggle
     show_password = st.checkbox("Show password", value=False)
 
+    # Autofocus using JS (works on all Streamlit versions)
+    st.markdown(
+        """
+        <script>
+        // Focus the username field after render
+        setTimeout(function() {
+            const input = window.parent.document.querySelector('input[placeholder="Username"]');
+            if (input) { input.focus(); }
+        }, 100);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
     with st.form("login_form"):
-        username = st.text_input("Username", autofocus=True)
+        username = st.text_input("Username", placeholder="Username")
         password = st.text_input(
             "Password",
-            type="text" if show_password else "password"
+            type="text" if show_password else "password",
+            placeholder="Password"
         )
         submit = st.form_submit_button("Login")
 
@@ -39,6 +54,7 @@ def login_screen():
 
         else:
             st.error("Invalid username or password")
+
 
 
 
