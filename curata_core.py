@@ -1098,7 +1098,8 @@ date,order_index,sales,profit,ad_spend,visitors
 
         st.markdown("### Export session state (JSON)")
 
-        session_json = json.dumps(export_session_state_dict(), indent=2)
+        session_json = json.dumps(export_session_state_dict(), indent=2, default=str)
+        
         st.download_button(
             label="Download session JSON",
             data=session_json,
@@ -1247,6 +1248,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
