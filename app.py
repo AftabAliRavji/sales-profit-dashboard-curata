@@ -1,5 +1,6 @@
 import streamlit as st
-from curata_core import init_auth_state, main_app   # removed login_screen import
+from curata_core import init_auth_state, main_app
+
 
 # ---------------------- Login System ---------------------- #
 def login_screen():
@@ -35,7 +36,7 @@ def login_screen():
     # --- Show/Hide Password Toggle ---
     show_password = st.checkbox("Show password", value=False)
 
-    # --- Autofocus on Username (JS-based, Streamlit-safe) ---
+    # --- Autofocus on Username ---
     st.markdown(
         """
         <script>
@@ -48,7 +49,7 @@ def login_screen():
         unsafe_allow_html=True,
     )
 
-    # --- Login Form (Enter-to-submit works here) ---
+    # --- Login Form ---
     with st.form("login_form"):
         username = st.text_input("Username", placeholder="Username")
         password = st.text_input(
@@ -62,7 +63,6 @@ def login_screen():
     if submit:
         normalized = username.strip().lower()
 
-        # User 1
         if (
             normalized == st.secrets["auth"]["user1"].lower()
             and password == st.secrets["auth"]["pass1"]
@@ -71,7 +71,6 @@ def login_screen():
             st.session_state["user_id"] = normalized
             st.rerun()
 
-        # User 2
         elif (
             normalized == st.secrets["auth"]["user2"].lower()
             and password == st.secrets["auth"]["pass2"]
@@ -100,6 +99,7 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+
  /* ------------------------------
    GLOBAL DARK THEME
 ------------------------------ */
@@ -109,6 +109,22 @@ st.markdown(
 }
 .main * {
     color: #ffffff !important;
+}
+
+/* ------------------------------
+   FIX INPUT TEXT + PLACEHOLDER
+------------------------------ */
+input, textarea, select {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;          /* <-- FIXED */
+    border: 1px solid #333333 !important;
+    font-weight: 500 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #e5e5e5 !important;           /* <-- FIXED */
+    opacity: 1 !important;
 }
 
 /* ------------------------------
@@ -176,28 +192,6 @@ h1, h2, h3, h4, h5 {
 }
 
 /* ------------------------------
-   INPUTS
------------------------------- */
-input, textarea, select {
-    background-color: #1a1a1a !important;
-    color: #ffffff !important;
-    border: 1px solid #333333 !important;
-    font-weight: 500 !important;
-}
-.stTextInput label,
-.stNumberInput label,
-.stDateInput label,
-.stSelectbox label,
-.stSlider label,
-.stMultiSelect label,
-.stRadio label,
-.stCheckbox label,
-.stTextArea label {
-    color: #ffffff !important;
-    font-weight: 700 !important;
-}
-
-/* ------------------------------
    TABLES
 ------------------------------ */
 .stDataFrame, .stTable {
@@ -220,9 +214,10 @@ div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBas
     background-color: #1d4ed8 !important;
 }
 
-/* Global + form submit buttons */
-.stButton > button,
-div[data-testid="formSubmitButton"] > button {
+/* ------------------------------
+   FIXED LOGIN BUTTON (CORRECT SELECTOR)
+------------------------------ */
+div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-secondaryFormSubmit"] {
     background-color: #2563eb !important;
     color: #ffffff !important;
     font-weight: 700 !important;
@@ -232,24 +227,20 @@ div[data-testid="formSubmitButton"] > button {
     box-shadow: none !important;
     opacity: 1 !important;
     visibility: visible !important;
+    display: inline-block !important;
 }
 
-.stButton > button:hover,
-div[data-testid="formSubmitButton"] > button:hover {
+div[data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
     background-color: #1d4ed8 !important;
 }
 
-/* Remove white wrapper around form submit buttons */
-div[data-testid="formSubmitButton"] {
+/* Remove wrapper background */
+div[data-testid="stFormSubmitButton"] {
     background-color: transparent !important;
 }
-div.stButton {
-    background-color: transparent !important;
-}
-
 
 /* ------------------------------
-   EXPANDERS (MATCHING YOUR DOM)
+   EXPANDERS
 ------------------------------ */
 div.stExpander[data-testid="stExpander"] {
     background-color: #111111 !important;
@@ -261,18 +252,11 @@ div.stExpander[data-testid="stExpander"] > details > summary {
     font-weight: 700 !important;
     border-radius: 6px !important;
     padding: 8px !important;
-    list-style: none !important;
 }
 div.stExpander[data-testid="stExpander"] > details[open] > summary {
     background-color: #16a34a !important;
     color: #ffffff !important;
     font-weight: 800 !important;
-}
-div.stExpander[data-testid="stExpander"] > details[open] > summary:hover {
-    background-color: #15803d !important;
-}
-div.stExpander[data-testid="stExpander"] > details > div[data-testid="stExpanderDetails"] {
-    background-color: #111111 !important;
 }
 
 /* ------------------------------
@@ -286,6 +270,7 @@ div.stExpander[data-testid="stExpander"] > details > div[data-testid="stExpander
         font-size: 13px;
     }
 }
+
 </style>
 """,
     unsafe_allow_html=True,
