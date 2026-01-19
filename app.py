@@ -3,34 +3,62 @@ from curata_core import init_auth_state, main_app   # removed login_screen impor
 
 # ---------------------- Login System ---------------------- #
 def login_screen():
-    st.title("Curata Dashboard Login")
+    # --- Branded Curata Header ---
+    st.markdown(
+        """
+        <div style="
+            text-align: center;
+            padding: 1.5rem 0 1rem 0;
+            border-bottom: 1px solid #333;
+        ">
+            <div style="
+                font-size: 2rem;
+                font-weight: 900;
+                color: #ffffff;
+                letter-spacing: -0.5px;
+            ">
+                Curata Dashboard Login
+            </div>
+            <div style="
+                font-size: 1rem;
+                font-weight: 500;
+                color: #cccccc;
+                margin-top: 0.4rem;
+            ">
+                Secure access to your daily performance insights
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # Password visibility toggle
+    # --- Show/Hide Password Toggle ---
     show_password = st.checkbox("Show password", value=False)
 
-    # Autofocus using JS (works on all Streamlit versions)
+    # --- Autofocus on Username (JS-based, Streamlit-safe) ---
     st.markdown(
         """
         <script>
-        // Focus the username field after render
         setTimeout(function() {
             const input = window.parent.document.querySelector('input[placeholder="Username"]');
             if (input) { input.focus(); }
-        }, 100);
+        }, 150);
         </script>
         """,
         unsafe_allow_html=True,
     )
 
+    # --- Login Form (Enter-to-submit works here) ---
     with st.form("login_form"):
         username = st.text_input("Username", placeholder="Username")
         password = st.text_input(
             "Password",
-            type="text" if show_password else "password",
+            type="default" if show_password else "password",
             placeholder="Password"
         )
         submit = st.form_submit_button("Login")
 
+    # --- Login Logic ---
     if submit:
         normalized = username.strip().lower()
 
@@ -54,8 +82,6 @@ def login_screen():
 
         else:
             st.error("Invalid username or password")
-
-
 
 
 def logout():
