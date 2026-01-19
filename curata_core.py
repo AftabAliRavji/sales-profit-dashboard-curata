@@ -41,6 +41,8 @@ def fetch_live_fx_rate():
 def get_app_state_keys():
     keys = []
     for k in st.session_state.keys():
+        if k in ["authenticated", "auth_user"]:
+            continue  # skip login flags
         if (
             k.startswith("orders_day_")
             or k.startswith("day_")
@@ -49,6 +51,7 @@ def get_app_state_keys():
         ):
             keys.append(k)
     return keys
+
 
 
 def export_session_state_dict():
@@ -82,6 +85,11 @@ def load_session_from_file():
         with open(SESSION_FILE, "r") as f:
             data = json.load(f)
         for k, v in data.items():
+        
+            # 🚫 SAFEGUARD: never restore login flags
+            if k in ["authenticated", "auth_user"]:
+                continue
+        
             if k == "start_date":
                 try:
                     st.session_state[k] = pd.to_datetime(v).date()
@@ -89,6 +97,7 @@ def load_session_from_file():
                     st.session_state[k] = v
             else:
                 st.session_state[k] = v
+
         st.success("Session loaded from server. Rerunning…")
         st.rerun()
     except Exception as e:
@@ -1157,6 +1166,15 @@ date,order_index,sales,profit,ad_spend,visitors
 
         if st.button("🧹 Reset session state"):
             reset_session_state()
+    
+        # 🗑️ TEMPORARY: delete corrupted session file
+        if st.button("🗑️ Delete saved session file"):
+            try:
+                os.remove(SESSION_FILE)
+                st.success("Saved session file deleted.")
+            except Exception:
+                st.warning("Could not delete session file.")
+
 # ---------------------- Tab 8: Summary Charts ---------------------- #
     with tabs[7]:
         st.subheader("📊 Summary charts")
