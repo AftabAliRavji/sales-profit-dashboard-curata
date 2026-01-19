@@ -205,7 +205,7 @@ input, textarea, select {
 }
 
 /* ------------------------------
-   BUTTONS (GLOBAL + EXPORT)
+   BUTTONS (GLOBAL + EXPORT + LOGIN)
 ------------------------------ */
 div.stDownloadButton[data-testid="stDownloadButton"] > button[data-testid="stBaseButton-secondary"] {
     background-color: #2563eb !important;
@@ -229,6 +229,8 @@ button[data-testid="formSubmitButton"] {
     padding: 8px 14px !important;
     border: none !important;
     box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 .stButton > button:hover,
 button[data-testid="formSubmitButton"]:hover {
@@ -285,6 +287,7 @@ div.stExpander[data-testid="stExpander"] > details > div[data-testid="stExpander
 """,
     unsafe_allow_html=True,
 )
+
 
 # ---------------------- Run the app ---------------------- #
 init_auth_state()
