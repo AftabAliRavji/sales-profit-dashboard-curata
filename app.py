@@ -4,6 +4,34 @@ from curata_core import init_auth_state, main_app
 
 # ---------------------- Login System ---------------------- #
 def login_screen():
+
+    # --- Login CSS (labels + placeholders) ---
+    st.markdown(
+        """
+        <style>
+        /* Improve label visibility */
+        .stTextInput label,
+        .stCheckbox label {
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            font-size: 1rem !important;
+        }
+
+        /* Improve placeholder visibility and fade on focus */
+        .stTextInput input::placeholder {
+            color: #e5e7eb !important; /* light slate */
+            opacity: 1 !important;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .stTextInput input:focus::placeholder {
+            opacity: 0.3 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # --- Branded Curata Header ---
     st.markdown(
         """
@@ -32,6 +60,7 @@ def login_screen():
         """,
         unsafe_allow_html=True,
     )
+
 
     # --- Show/Hide Password Toggle ---
     show_password = st.checkbox("Show password", value=False)
