@@ -65,6 +65,19 @@ gotrue==2.4.3
 storage3==0.7.3
 realtime==1.0.0
 
+## DB schema
+# below statement redundant
+create table curata_sessions (
+  user_id text primary key,
+  session_json jsonb not null,
+  updated_at timestamptz default now()
+);
+# currently in use
+create table if not exists curata_global_state ( id text primary key, session_json jsonb );
+
+ALTER TABLE curata_global_state
+ADD COLUMN last_updated timestamptz DEFAULT now();
+
 
 ## old comments - of breakdown od updates in this app
 This file contains python code for an app which creates the following - 
