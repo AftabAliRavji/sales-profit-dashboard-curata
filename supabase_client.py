@@ -76,6 +76,8 @@ def load_global_state():
         return None
 
 
+from datetime import datetime
+
 def save_global_state(session_dict: dict):
     supabase = get_supabase()
     payload = {
@@ -84,7 +86,11 @@ def save_global_state(session_dict: dict):
         "last_updated": datetime.utcnow().isoformat()
     }
 
+    print("🔄 Saving global state to Supabase...")
+    print("Payload keys:", list(payload["session_json"].keys()))
+
     try:
         supabase.table("curata_global_state").upsert(payload).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        print("❌ Supabase save failed:", e)
+

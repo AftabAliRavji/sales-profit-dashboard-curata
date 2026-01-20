@@ -1232,6 +1232,8 @@ date,order_index,sales,profit,ad_spend,visitors
     if st.session_state.get("authenticated"):
         session_dict = export_session_state_dict()
         save_global_state(session_dict)
+        st.sidebar.success("✅ Global state saved.")
+
 
 
 # ============================================================
