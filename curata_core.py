@@ -25,6 +25,28 @@ def init_auth_state():
     if "user_id" not in st.session_state:
         st.session_state["user_id"] = None
 
+# --------------------- timestamp helpers -------------------- #
+from datetime import datetime, timezone
+
+def pretty_time(ts):
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "")).replace(tzinfo=timezone.utc)
+        diff = datetime.now(timezone.utc) - dt
+        minutes = int(diff.total_seconds() // 60)
+
+        if minutes < 1:
+            return "just now"
+        if minutes == 1:
+            return "1 minute ago"
+        if minutes < 60:
+            return f"{minutes} minutes ago"
+        hours = minutes // 60
+        if hours == 1:
+            return "1 hour ago"
+        return f"{hours} hours ago"
+    except:
+        return ts
+
 
 # ---------------------- Live FX rate ---------------------- #
 @st.cache_data(ttl=60 * 60)
@@ -457,6 +479,12 @@ def main_app():
 
     # ---------------------- Sidebar ---------------------- #
     st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('user_id', 'Unknown')}")
+    # Show last updated timestamp
+    if "last_updated" in st.session_state and st.session_state["last_updated"]:
+        pretty = pretty_time(st.session_state["last_updated"])
+        st.sidebar.markdown(f"**Last updated:** {pretty}")
+
+
 
     if st.sidebar.button("Refresh FX rate (USD → GBP)"):
         new_rate = fetch_live_fx_rate()
@@ -488,10 +516,12 @@ def main_app():
             "Export",
             "Session JSON",
             "Summary Charts",
+            "Admin",   # 👈 Add this line
         ]
     )
-
+    
     daily_rows = []
+
 
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
@@ -1226,6 +1256,182 @@ date,order_index,sales,profit,ad_spend,visitors
             )
 
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
+            
+            # ---------------------- Tab 8: Admin ---------------------- #
+    with tabs[7]:
+        st.header("Admin Tools")
+    
+        supabase = get_supabase()
+    
+        # ============================
+        # VERSION HISTORY
+        # ============================
+        st.subheader("📜 Version History")
+        st.caption("View the last 10 saved versions of the global state.")
+    
+        try:
+            versions = (
+                supabase.table("curata_global_versions")
+                .select("version_id, created_at, saved_by, locked")
+                .order("created_at", desc=True)
+                .limit(10)
+                .execute()
+            )
+    
+            for v in versions.data:
+                lock_status = "🔒 Locked" if v.get("locked") else "🔓 Unlocked"
+                st.markdown(
+                    f"- **Version {v['version_id']}** — {v['created_at']} by `{v['saved_by']}` — {lock_status}"
+                )
+        except Exception as e:
+            st.error("Failed to load version history.")
+    
+        st.markdown("---")
+    
+        # ============================
+        # AUDIT LOG
+        # ============================
+        st.subheader("🔍 Audit Log")
+        st.caption("See who saved what and when.")
+    
+        try:
+            logs = (
+                supabase.table("curata_global_audit")
+                .select("timestamp, user_id, action")
+                .order("timestamp", desc=True)
+                .limit(10)
+                .execute()
+            )
+    
+            for log in logs.data:
+                st.markdown(
+                    f"- `{log['user_id']}` performed **{log['action']}** at {log['timestamp']}"
+                )
+        except Exception as e:
+            st.error("Failed to load audit log.")
+    
+        st.markdown("---")
+    
+        # ============================
+        # RESTORE LATEST BACKUP
+        # ============================
+        st.subheader("🧩 Restore Latest Backup")
+        st.caption("Restore the most recent JSON backup from Supabase Storage.")
+    
+        if st.button("Restore Latest Backup"):
+            try:
+                files = supabase.storage.from_("curata_backups").list()
+    
+                if files:
+                    sorted_files = sorted(files, key=lambda f: f["name"], reverse=True)
+                    latest = sorted_files[0]["name"]
+    
+                    content = supabase.storage.from_("curata_backups").download(latest)
+                    restored = json.loads(content)
+    
+                    apply_session_dict(restored)
+                    st.session_state["restored_from_backup"] = latest
+                    st.success(f"Restored from backup: {latest}")
+                else:
+                    st.warning("No backups found.")
+            except Exception as e:
+                st.error("Restore failed.")
+    
+        st.markdown("---")
+    
+        # ============================
+        # RESTORE FROM SPECIFIC VERSION
+        # ============================
+        st.subheader("🗂 Restore From Version")
+        st.caption("Pick a version and restore its state.")
+    
+        try:
+            version_list = (
+                supabase.table("curata_global_versions")
+                .select("version_id, created_at, locked")
+                .order("created_at", desc=True)
+                .limit(20)
+                .execute()
+            )
+    
+            version_options = {
+                f"Version {v['version_id']} — {v['created_at']} {'🔒' if v.get('locked') else ''}": v["version_id"]
+                for v in version_list.data
+            }
+    
+            selected_version = st.selectbox("Choose version to restore:", list(version_options.keys()))
+    
+            if st.button("Restore Selected Version"):
+                version_id = version_options[selected_version]
+    
+                version_data = (
+                    supabase.table("curata_global_versions")
+                    .select("session_json")
+                    .eq("version_id", version_id)
+                    .single()
+                    .execute()
+                )
+    
+                apply_session_dict(version_data.data["session_json"])
+                st.success(f"Restored Version {version_id}")
+        except Exception as e:
+            st.error("Failed to load versions.")
+    
+        st.markdown("---")
+    
+        # ============================
+        # LOCK VERSION
+        # ============================
+        st.subheader("🔒 Lock Version")
+        st.caption("Lock a version to prevent overwrites or deletion.")
+    
+        try:
+            lock_options = {
+                f"Version {v['version_id']} — {v['created_at']}": v["version_id"]
+                for v in version_list.data
+                if not v.get("locked")
+            }
+    
+            version_to_lock = st.selectbox("Choose version to lock:", list(lock_options.keys()))
+    
+            if st.button("Lock Selected Version"):
+                version_id = lock_options[version_to_lock]
+    
+                supabase.table("curata_global_versions").update({"locked": True}).eq("version_id", version_id).execute()
+    
+                st.success(f"Version {version_id} is now locked.")
+        except Exception as e:
+            st.error("Failed to lock version.")
+    
+        st.markdown("---")
+    
+        # ============================
+        # DOWNLOAD LATEST BACKUP
+        # ============================
+        st.subheader("⬇️ Download Latest Backup")
+        st.caption("Download the most recent JSON backup file.")
+    
+        if st.button("Download Backup"):
+            try:
+                files = supabase.storage.from_("curata_backups").list()
+    
+                if files:
+                    sorted_files = sorted(files, key=lambda f: f["name"], reverse=True)
+                    latest = sorted_files[0]["name"]
+    
+                    content = supabase.storage.from_("curata_backups").download(latest)
+    
+                    st.download_button(
+                        label="Download Backup JSON",
+                        data=content,
+                        file_name=latest,
+                        mime="application/json"
+                    )
+                else:
+                    st.warning("No backups found.")
+            except Exception as e:
+                st.error("Download failed.")
+
 
     # ---------------------- Auto-save to Supabase ---------------------- #
     # Auto-save after every interaction
