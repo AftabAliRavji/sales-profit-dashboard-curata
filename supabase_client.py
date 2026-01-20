@@ -82,8 +82,8 @@ def save_global_state(session_dict: dict):
     supabase = get_supabase()
     payload = {
         "id": GLOBAL_KEY,
-        "session_json": session_dict,
-        "last_updated": datetime.utcnow().isoformat()
+        "session_json": session_dict
+        # Do NOT include last_updated — let Supabase default handle it
     }
 
     print("🔄 Saving global state to Supabase...")
