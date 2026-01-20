@@ -85,7 +85,27 @@ def make_json_safe(data: dict):
 #  GLOBAL SESSION FUNCTIONS (used by the whole dashboard)
 # ============================================================
 
-GLOBAL_KEY = "global"   # single row ID for the entire dashboard
+GLOBAL_KEY = "global"
+
+def load_global_state():
+    supabase = get_supabase()
+    try:
+        resp = (
+            supabase.table("curata_global_state")
+            .select("session_json, last_updated")
+            .eq("id", GLOBAL_KEY)
+            .single()
+            .execute()
+        )
+        if resp.data:
+            return {
+                "session_json": resp.data.get("session_json", {}),
+                "last_updated": resp.data.get("last_updated")
+            }
+        return None
+    except Exception:
+        return None
+
 
 
 from datetime import datetime

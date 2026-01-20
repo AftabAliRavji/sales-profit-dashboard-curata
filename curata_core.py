@@ -6,10 +6,11 @@ import requests
 import plotly.express as px
 
 from supabase_client import (
-    load_session_from_supabase,   # keep for rollback
-    save_session_to_supabase,     # keep for rollback
-    save_global_state,            # NEW
-    get_supabase # NEW (required for Admin tab)
+    load_session_from_supabase,
+    save_session_to_supabase,
+    load_global_state,     # ← now valid again
+    save_global_state,
+    get_supabase
 )
 
 
