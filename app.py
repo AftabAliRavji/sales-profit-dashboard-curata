@@ -4,6 +4,24 @@ from curata_core import init_auth_state, main_app
 
 # ---------------------- Login System ---------------------- #
 def login_screen():
+    # -- Global css for labels
+    st.markdown(
+        """
+        <style>
+        /* Brighten all input labels */
+        .stTextInput label,
+        .stNumberInput label,
+        .stDateInput label,
+        .stSelectbox label,
+        .stSlider label {
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            font-size: 1rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # --- Login CSS (labels + placeholders) ---
     st.markdown(
