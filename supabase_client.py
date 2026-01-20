@@ -47,6 +47,28 @@ def save_session_to_supabase(user_id: str, session_dict: dict):
         supabase.table("curata_sessions").upsert(payload).execute()
     except Exception:
         pass
+    
+def make_json_safe(data: dict):
+    safe = {}
+    for key, value in data.items():
+        # Skip non-serializable objects
+        if hasattr(value, "read"):  # UploadedFile
+            continue
+        if str(type(value)) == "<class 'pandas.core.frame.DataFrame'>":
+            continue
+        if "DataFrame" in str(type(value)):
+            continue
+        if callable(value):
+            continue
+
+        # Only keep JSON-safe primitives
+        try:
+            json.dumps(value)
+            safe[key] = value
+        except Exception:
+            pass
+
+    return safe
 
 
 # ============================================================
@@ -80,10 +102,12 @@ from datetime import datetime
 
 def save_global_state(session_dict: dict):
     supabase = get_supabase()
+
+    safe_dict = make_json_safe(session_dict)
+
     payload = {
         "id": GLOBAL_KEY,
-        "session_json": session_dict
-        # Do NOT include last_updated — let Supabase default handle it
+        "session_json": safe_dict
     }
 
     print("🔄 Saving global state to Supabase...")
