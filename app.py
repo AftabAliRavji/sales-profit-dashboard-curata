@@ -7,30 +7,37 @@ def login_screen():
 
     # --- Login CSS (labels + placeholders) ---
     st.markdown(
-        """
-        <style>
-        /* Improve label visibility */
-        .stTextInput label,
-        .stCheckbox label {
-            color: #ffffff !important;
-            font-weight: 600 !important;
-            font-size: 1rem !important;
-        }
+    """
+    <style>
+    /* Improve label visibility for text inputs */
+    .stTextInput label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+    }
 
-        /* Improve placeholder visibility and fade on focus */
-        .stTextInput input::placeholder {
-            color: #e5e7eb !important; /* light slate */
-            opacity: 1 !important;
-            transition: opacity 0.2s ease-in-out;
-        }
+    /* Improve label visibility for checkboxes */
+    div[data-testid="stCheckbox"] > label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+    }
 
-        .stTextInput input:focus::placeholder {
-            opacity: 0.3 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    /* Improve placeholder visibility and fade on focus */
+    .stTextInput input::placeholder {
+        color: #e5e7eb !important;
+        opacity: 1 !important;
+        transition: opacity 0.2s ease-in-out;
+    }
+
+    .stTextInput input:focus::placeholder {
+        opacity: 0.3 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
     # --- Branded Curata Header ---
     st.markdown(
