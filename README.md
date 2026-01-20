@@ -72,11 +72,45 @@ create table curata_sessions (
   session_json jsonb not null,
   updated_at timestamptz default now()
 );
-# currently in use
+
+
 create table if not exists curata_global_state ( id text primary key, session_json jsonb );
+
 
 ALTER TABLE curata_global_state
 ADD COLUMN last_updated timestamptz DEFAULT now();
+
+alter table curata_global_state
+alter column last_updated set default now();
+
+
+create table if not exists curata_global_versions (
+    version_id bigint generated always as identity primary key,
+    created_at timestamptz default now(),
+    saved_by text,
+    session_json jsonb
+);
+
+create table if not exists curata_global_audit (
+    audit_id bigint generated always as identity primary key,
+    timestamp timestamptz default now(),
+    user_id text,
+    action text,
+    details jsonb
+);
+
+alter table curata_global_versions
+add column if not exists locked boolean default false;
+
+# select statements
+select * from  curata_global_state;
+select * from curata_global_audit;
+select * from curata_global_versions;
+
+## under storage buckets
+Files
+Buckets
+curata_backups
 
 
 ## old comments - of breakdown od updates in this app
