@@ -1257,7 +1257,7 @@ date,order_index,sales,profit,ad_spend,visitors
 
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
             
-            # ---------------------- Tab 8: Admin ---------------------- #
+    # ---------------------- Tab 8: Admin ---------------------- #
     with tabs[7]:
         st.header("Admin Tools")
     
