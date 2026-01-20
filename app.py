@@ -9,21 +9,22 @@ def login_screen():
     st.markdown(
     """
     <style>
-    /* Improve label visibility for text inputs */
+    /* Text input labels */
     .stTextInput label {
         color: #ffffff !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
     }
 
-    /* Improve label visibility for checkboxes */
-    div[data-testid="stCheckbox"] > label {
+    /* "Show password" label – targets the widget label container */
+    div[data-testid="stWidgetLabel"] p {
         color: #ffffff !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
+        margin-bottom: 0.25rem !important;
     }
 
-    /* Improve placeholder visibility and fade on focus */
+    /* Placeholder visibility and fade on focus */
     .stTextInput input::placeholder {
         color: #e5e7eb !important;
         opacity: 1 !important;
