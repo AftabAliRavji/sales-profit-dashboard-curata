@@ -5,7 +5,13 @@ import json
 import requests
 import plotly.express as px
 
-from supabase_client import load_session_from_supabase, save_session_to_supabase
+from supabase_client import (
+    load_session_from_supabase,   # keep for rollback
+    save_session_to_supabase,     # keep for rollback
+    load_global_state,            # NEW
+    save_global_state             # NEW
+)
+
 
 # ============================================================
 #  Curata Dashboard — Core Logic (Rebuilt & Polished)
@@ -368,14 +374,14 @@ def main_app():
 
     init_default_state()
 
-    # Auto-restore session only AFTER login, from Supabase (once per session)
+    # Load GLOBAL state on first run after login
     if st.session_state.get("authenticated") and "session_restored" not in st.session_state:
-        user_id = st.session_state.get("user_id")
-        if user_id:
-            data = load_session_from_supabase(user_id)
-            if data:
-                apply_session_dict(data)
+        loaded = load_global_state()
+        if loaded:
+            apply_session_dict(loaded["session_json"])
+            st.session_state["last_updated"] = loaded["last_updated"]
         st.session_state["session_restored"] = True
+
 
     # ---------------------- Global CSS ---------------------- #
     st.markdown(
@@ -462,10 +468,10 @@ def main_app():
 
     # Sidebar logout (Option B)
     if st.sidebar.button("Log out"):
-        # Save latest session to Supabase before logging out
-        if st.session_state.get("authenticated") and st.session_state.get("user_id"):
+        if st.session_state.get("authenticated"):
             session_dict = export_session_state_dict()
-            save_session_to_supabase(st.session_state["user_id"], session_dict)
+            save_global_state(session_dict)
+
 
         st.session_state["authenticated"] = False
         st.session_state["user_id"] = None
@@ -1222,9 +1228,11 @@ date,order_index,sales,profit,ad_spend,visitors
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
 
     # ---------------------- Auto-save to Supabase ---------------------- #
-    if st.session_state.get("authenticated") and st.session_state.get("user_id"):
+    # Auto-save after every interaction
+    if st.session_state.get("authenticated"):
         session_dict = export_session_state_dict()
-        save_session_to_supabase(st.session_state["user_id"], session_dict)
+        save_global_state(session_dict)
+
 
 # ============================================================
 #  END OF FILE — Curata Dashboard (Supabase-integrated)
