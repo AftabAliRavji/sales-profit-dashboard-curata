@@ -50,25 +50,35 @@ def save_session_to_supabase(user_id: str, session_dict: dict):
     
 def make_json_safe(data: dict):
     safe = {}
+
     for key, value in data.items():
-        # Skip non-serializable objects
-        if hasattr(value, "read"):  # UploadedFile
+
+        # Skip Streamlit UploadedFile objects
+        if hasattr(value, "read"):
             continue
-        if str(type(value)) == "<class 'pandas.core.frame.DataFrame'>":
+
+        # Skip pandas DataFrames
+        if isinstance(value, pd.DataFrame):
             continue
-        if "DataFrame" in str(type(value)):
-            continue
+
+        # Skip any callable (functions, methods)
         if callable(value):
             continue
 
-        # Only keep JSON-safe primitives
+        # Skip any object that is clearly not JSON-safe
+        if isinstance(value, (bytes, bytearray)):
+            continue
+
+        # Try to serialize — only keep if JSON-safe
         try:
             json.dumps(value)
             safe[key] = value
         except Exception:
-            pass
+            # Skip anything that fails JSON serialization
+            continue
 
     return safe
+
 
 
 # ============================================================
@@ -78,24 +88,57 @@ def make_json_safe(data: dict):
 GLOBAL_KEY = "global"   # single row ID for the entire dashboard
 
 
-def load_global_state():
+from datetime import datetime
+
+def save_global_state(session_dict: dict):
     supabase = get_supabase()
+
+    # Filter JSON-safe values
+    safe_dict = make_json_safe(session_dict)
+
+    payload = {
+        "id": GLOBAL_KEY,
+        "session_json": safe_dict
+    }
+
+    print("🔄 Saving global state to Supabase...")
+    print("Payload keys:", list(payload["session_json"].keys()))
+
+    # MAIN SAVE
     try:
-        resp = (
-            supabase.table("curata_global_state")
-            .select("session_json, last_updated")
-            .eq("id", GLOBAL_KEY)
-            .single()
-            .execute()
+        supabase.table("curata_global_state").upsert(payload).execute()
+    except Exception as e:
+        print("❌ Supabase save failed:", e)
+
+    # VERSIONING
+    try:
+        supabase.table("curata_global_versions").insert({
+            "saved_by": st.session_state.get("user_id", "unknown"),
+            "session_json": safe_dict,
+            "locked": False,
+        }).execute()
+    except Exception as e:
+        print("❌ Version save failed:", e)
+
+    # AUDIT LOG
+    try:
+        supabase.table("curata_global_audit").insert({
+            "user_id": st.session_state.get("user_id", "unknown"),
+            "action": "save_global_state",
+            "details": {"keys_saved": list(safe_dict.keys())}
+        }).execute()
+    except Exception as e:
+        print("❌ Audit log failed:", e)
+
+    # AUTO-BACKUP TO STORAGE
+    try:
+        backup_name = f"backup_{datetime.utcnow().isoformat()}.json"
+        supabase.storage.from_("curata_backups").upload(
+            backup_name,
+            json.dumps(safe_dict)
         )
-        if resp.data:
-            return {
-                "session_json": resp.data.get("session_json", {}),
-                "last_updated": resp.data.get("last_updated")
-            }
-        return None
-    except Exception:
-        return None
+    except Exception as e:
+        print("❌ Backup failed:", e)
 
 
 from datetime import datetime

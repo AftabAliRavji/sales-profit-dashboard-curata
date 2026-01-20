@@ -9,7 +9,8 @@ from supabase_client import (
     load_session_from_supabase,   # keep for rollback
     save_session_to_supabase,     # keep for rollback
     load_global_state,            # NEW
-    save_global_state             # NEW
+    save_global_state,             # NEW
+    get_supabase # NEW (required for Admin tab)
 )
 
 
