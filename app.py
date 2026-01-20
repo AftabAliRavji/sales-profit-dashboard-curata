@@ -3,26 +3,34 @@ from curata_core import init_auth_state, main_app
 
 
 # ---------------------- Login System ---------------------- #
-def login_screen():
-    # -- Global css for labels
-    st.markdown(
-        """
-        <style>
-        /* Brighten all input labels */
-        .stTextInput label,
-        .stNumberInput label,
-        .stDateInput label,
-        .stSelectbox label,
-        .stSlider label {
-            color: #ffffff !important;
-            font-weight: 600 !important;
-            font-size: 1rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    """
+    <style>
+    /* Brighten all input labels across widget types */
+    div[data-testid="stWidgetLabel"] > div > p {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        margin-bottom: 0.25rem !important;
+    }
 
+    /* Also target legacy label containers */
+    label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+    }
+
+    /* Optional: brighten number input arrows */
+    input[type="number"] {
+        color: #ffffff !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+def login_screen():
     # --- Login CSS (labels + placeholders) ---
     st.markdown(
     """
