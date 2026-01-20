@@ -1,6 +1,7 @@
 import json
 import streamlit as st
 from supabase import create_client
+from datetime import datetime
 
 @st.cache_resource
 def get_supabase():
@@ -49,7 +50,7 @@ def save_session_to_supabase(user_id: str, session_dict: dict):
 
 
 # ============================================================
-#  GLOBAL SESSION FUNCTIONS (NEW — used by the whole dashboard)
+#  GLOBAL SESSION FUNCTIONS (used by the whole dashboard)
 # ============================================================
 
 GLOBAL_KEY = "global"   # single row ID for the entire dashboard
@@ -60,13 +61,16 @@ def load_global_state():
     try:
         resp = (
             supabase.table("curata_global_state")
-            .select("session_json")
+            .select("session_json, last_updated")
             .eq("id", GLOBAL_KEY)
             .single()
             .execute()
         )
         if resp.data:
-            return resp.data.get("session_json", {})
+            return {
+                "session_json": resp.data.get("session_json", {}),
+                "last_updated": resp.data.get("last_updated")
+            }
         return None
     except Exception:
         return None
@@ -77,6 +81,7 @@ def save_global_state(session_dict: dict):
     payload = {
         "id": GLOBAL_KEY,
         "session_json": session_dict,
+        "last_updated": datetime.utcnow().isoformat()
     }
 
     try:
