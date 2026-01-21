@@ -706,272 +706,233 @@ def main_app():
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
 
-    # ---------------------- Tab 2: Bulk Import ---------------------- #
-    with tabs[1]:
-        st.subheader("📥 Bulk import daily data (JSON or CSV)")
-    
-        # --- Styling fixes: visible browse button + readable filename + button color ---
-        st.markdown(
-            """
-            <style>
-            .stFileUploader label { background: none !important; border: none !important; padding: 0 !important; margin-bottom: 0.4rem !important; box-shadow: none !important; cursor: default !important; font-size: 1rem !important; font-weight: 700 !important; color: #ffffff !important; }
-            .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
-                border: 2px dashed #9ca3af !important;
-                padding: 1.2rem !important;
-                background-color: #f9fafb !important;
-            }
-            .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
-                opacity: 1 !important;
-            }
-            .stFileUploader span button {
-                visibility: visible !important;
-                opacity: 1 !important;
-                display: inline-block !important;
-                background-color: #2563eb !important;
-                color: #ffffff !important;
-                font-weight: 600 !important;
-                padding: 0.35rem 0.9rem !important;
-                border-radius: 6px !important;
-                border: none !important;
-            }
-            div[data-testid="stFileUploader"] > div > div > span {
-                color: #ffffff !important;
-                font-weight: 700 !important;
-                font-size: 1rem !important;
-            }
-            div[data-testid="stFileUploader"] > div > div:nth-of-type(2) {
-                display: none !important;
-            }
-            div[data-testid="stFileUploaderFileName"] {
-                color: #ffffff !important;
-                font-weight: 700 !important;
-                font-size: 1rem !important;
-            }
-            div.stFileUploaderFileData small {
-                color: #ffffff !important;
-                font-weight: 500 !important;
-                font-size: 0.9rem !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-    
-        st.markdown(
-            """
-    **JSON example:**
-    
-    {
-      "2026-01-08": {
-        "ad_spend": 64,
-        "visitors": 120,
-        "orders": [...]
-      }
-    }
-    
-    **CSV example:**
-    
-    date,order_index,sales,profit,ad_spend,visitors
-    2026-01-08,1,87.48,26.98,64,120
-    """
-        )
-    
-        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
-    
-        # --- File uploader ---
-        uploaded_bulk = st.file_uploader(
-            "Upload bulk data file",
-            type=["json", "csv"],
-            key="bulk_import_uploader",
-        )
-    
-        # Persist file across reruns
-        if uploaded_bulk is not None:
-            st.session_state["uploaded_bulk_file"] = uploaded_bulk
-    
-        file_obj = st.session_state.get("uploaded_bulk_file", None)
-    
-        if file_obj:
-            file_name = file_obj.name.lower()
-            file_size_kb = round(len(file_obj.getvalue()) / 1024, 1)
-    
-            st.markdown(
-                f"""
-                <div style="margin-top: 0.4rem; font-weight: 700; color: #ffffff;">
-                    {file_obj.name} &nbsp; <span style="font-weight: 500;">{file_size_kb}KB</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    
-            # ---------------------- JSON IMPORT ---------------------- #
-            if file_name.endswith(".json"):
-    
-                # Preview button
-                if st.button("Preview JSON data"):
-                    try:
-                        raw_bytes = file_obj.getvalue()
-                        data = json.loads(raw_bytes.decode("utf-8"))
-    
-                        if not isinstance(data, dict):
-                            st.error("JSON must be an object with dates as keys.")
-                        else:
-                            st.session_state["json_preview_raw"] = data
-                            st.success("Preview generated successfully.")
-    
-                    except Exception as e:
-                        st.error(f"❌ Could not parse JSON: {e}")
-    
-                # Show preview panel
-                if "json_preview_raw" in st.session_state:
-                    st.markdown("### 🔍 Preview of parsed JSON")
-    
-                    raw_data = st.session_state["json_preview_raw"]
-    
-                    for date_key, day_data in raw_data.items():
-                        with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
-                            st.json(day_data)
-    
-                    # Validation
-                    st.markdown("### 🧪 Validation report")
-                    validation_messages = []
-    
-                    for date_key, day_data in raw_data.items():
-                        if not isinstance(day_data, dict):
-                            validation_messages.append(f"❌ {date_key} is not a valid object.")
-                            continue
-    
-                        required_fields = ["ad_spend", "visitors", "orders"]
-                        missing = [f for f in required_fields if f not in day_data]
-    
-                        if missing:
-                            validation_messages.append(
-                                f"⚠️ {date_key} missing fields: {', '.join(missing)}"
-                            )
-    
-                        if "orders" in day_data and not isinstance(day_data["orders"], list):
-                            validation_messages.append(
-                                f"❌ {date_key} orders must be a list."
-                            )
-    
-                    if validation_messages:
-                        for msg in validation_messages:
-                            st.warning(msg)
-                    else:
-                        st.success("All dates validated successfully.")
-    
-                # Import button
-                if st.button("Import JSON data"):
-                    try:
-                        raw_data = st.session_state.get("json_preview_raw", None)
-                        if not raw_data:
-                            st.error("❌ Please generate a preview before importing.")
-                        else:
-                            total_days = len(raw_data)
-                            total_orders = sum(
-                                len(v.get("orders", []))
-                                for v in raw_data.values()
-                                if isinstance(v, dict)
-                            )
-    
-                            # Convert raw_data into structured list
-                            day_data_list = []
-                            for date_key, day_info in raw_data.items():
-                                try:
-                                    day_date = pd.to_datetime(date_key).date()
-                                except Exception:
-                                    continue
-    
-                                orders = day_info.get("orders", [])
-                                orders_clean = []
-                                for o in orders:
-                                    if isinstance(o, dict):
-                                        orders_clean.append(
-                                            {
-                                                "sales": float(o.get("sales", 0.0) or 0.0),
-                                                "profit": float(o.get("profit", 0.0) or 0.0),
-                                            }
-                                        )
-    
-                                day_data_list.append(
-                                    {
-                                        "date": day_date,
-                                        "ad_spend": float(day_info.get("ad_spend", 0.0)),
-                                        "visitors": int(day_info.get("visitors", 1)),
-                                        "orders": orders_clean,
-                                    }
-                                )
-    
-                            populate_from_structured_data(day_data_list)
-    
-                            # Persistent success message
-                            st.session_state["json_import_success"] = (
-                                f"Imported {total_days} days and {total_orders} orders."
-                            )
-    
-                    except Exception as e:
-                        st.error(f"❌ Unexpected error while importing JSON: {e}")
-    
-                # Show persistent success message after rerun
-                if "json_import_success" in st.session_state:
-                    st.success("✅ " + st.session_state["json_import_success"])
-    
-            # ---------------------- CSV IMPORT ---------------------- #
-            elif file_name.endswith(".csv"):
-    
-                if st.button("Preview CSV data"):
-                    try:
-                        raw_bytes = file_obj.getvalue()
-                        df_test = pd.read_csv(pd.io.common.BytesIO(raw_bytes))
-                        st.session_state["csv_preview"] = df_test
-                        st.success("Preview generated successfully.")
-                    except Exception as e:
-                        st.error(f"❌ Could not read CSV: {e}")
-    
-                if "csv_preview" in st.session_state:
-                    st.markdown("### 🔍 Preview of CSV")
-                    st.dataframe(st.session_state["csv_preview"], use_container_width=True)
-    
-                    st.markdown("### 🧪 Validation report")
-                    required_cols = {
-                        "date",
-                        "order_index",
-                        "sales",
-                        "profit",
-                        "ad_spend",
-                        "visitors",
-                    }
-                    missing_cols = required_cols - set(st.session_state["csv_preview"].columns)
-    
-                    if missing_cols:
-                        st.error(f"❌ Missing columns: {', '.join(missing_cols)}")
-                    else:
-                        st.success("All required columns present.")
-    
-                if st.button("Import CSV data"):
-                    try:
-                        df_test = st.session_state.get("csv_preview", None)
-                        if df_test is None:
-                            st.error("❌ Please generate a preview before importing.")
-                        else:
-                            total_days = df_test["date"].nunique()
-                            total_orders = len(df_test)
-    
-                            parse_csv_bulk(pd.io.common.BytesIO(file_obj.getvalue()))
-    
-                            st.success(
-                                f"✅ Imported {total_days} days and {total_orders} orders."
-                            )
-    
-                    except Exception as e:
-                        st.error(f"❌ Could not import CSV: {e}")
-    
-            else:
-                st.warning("⚠️ Unsupported file type. Please upload a .json or .csv file.")
-    
-        else:
-            st.info("Upload a JSON or CSV file to begin bulk import.")
+# ---------------------- Tab 2: Bulk Import ---------------------- #
+with tabs[1]:
+    st.subheader("📥 Bulk import daily data (JSON or CSV)")
 
+    # --- Styling fixes ---
+    st.markdown("""
+    <style>
+    .stFileUploader label { background: none !important; border: none !important; padding: 0 !important; margin-bottom: 0.4rem !important; box-shadow: none !important; cursor: default !important; font-size: 1rem !important; font-weight: 700 !important; color: #ffffff !important; }
+    .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
+        border: 2px dashed #9ca3af !important;
+        padding: 1.2rem !important;
+        background-color: #f9fafb !important;
+    }
+    .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
+        opacity: 1 !important;
+    }
+    .stFileUploader span button {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: inline-block !important;
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        padding: 0.35rem 0.9rem !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+    div[data-testid="stFileUploader"] > div > div > span {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+    }
+    div[data-testid="stFileUploader"] > div > div:nth-of-type(2) {
+        display: none !important;
+    }
+    div[data-testid="stFileUploaderFileName"] {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+    }
+    div.stFileUploaderFileData small {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+**JSON example:**
+
+{
+  "2026-01-08": {
+    "ad_spend": 64,
+    "visitors": 120,
+    "orders": [...]
+  }
+}
+
+**CSV example:**
+
+date,order_index,sales,profit,ad_spend,visitors
+2026-01-08,1,87.48,26.98,64,120
+""")
+
+    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+
+    # --- File uploader ---
+    uploaded_bulk = st.file_uploader(
+        "Upload bulk data file",
+        type=["json", "csv"],
+        key="bulk_import_uploader"
+    )
+
+    if uploaded_bulk is not None:
+        st.session_state["uploaded_bulk_file"] = uploaded_bulk
+
+    file_obj = st.session_state.get("uploaded_bulk_file", None)
+
+    if file_obj:
+        file_name = file_obj.name.lower()
+        file_size_kb = round(len(file_obj.getvalue()) / 1024, 1)
+
+        st.markdown(f"""
+        <div style="margin-top: 0.4rem; font-weight: 700; color: #ffffff;">
+            {file_obj.name} &nbsp; <span style="font-weight: 500;">{file_size_kb}KB</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ---------------------- JSON IMPORT ---------------------- #
+        if file_name.endswith(".json"):
+
+            if st.button("Preview JSON data"):
+                try:
+                    raw_bytes = file_obj.getvalue()
+                    data = json.loads(raw_bytes.decode("utf-8"))
+
+                    if not isinstance(data, dict):
+                        st.error("JSON must be an object with dates as keys.")
+                    else:
+                        st.session_state["json_preview_raw"] = data
+                        st.session_state["json_preview_triggered"] = True
+                        st.success("Preview generated successfully.")
+                except Exception as e:
+                    st.error(f"❌ Could not parse JSON: {e}")
+
+            if st.session_state.get("json_preview_triggered") and "json_preview_raw" in st.session_state:
+                st.markdown("### 🔍 Preview of parsed JSON")
+                raw_data = st.session_state["json_preview_raw"]
+
+                for date_key, day_data in raw_data.items():
+                    with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
+                        st.json(day_data)
+
+                st.markdown("### 🧪 Validation report")
+                validation_messages = []
+
+                for date_key, day_data in raw_data.items():
+                    if not isinstance(day_data, dict):
+                        validation_messages.append(f"❌ {date_key} is not a valid object.")
+                        continue
+
+                    required_fields = ["ad_spend", "visitors", "orders"]
+                    missing = [f for f in required_fields if f not in day_data]
+
+                    if missing:
+                        validation_messages.append(f"⚠️ {date_key} missing fields: {', '.join(missing)}")
+
+                    if "orders" in day_data and not isinstance(day_data["orders"], list):
+                        validation_messages.append(f"❌ {date_key} orders must be a list.")
+
+                if validation_messages:
+                    for msg in validation_messages:
+                        st.warning(msg)
+                else:
+                    st.success("All dates validated successfully.")
+
+            if st.button("Import JSON data"):
+                try:
+                    raw_data = st.session_state.get("json_preview_raw", None)
+                    if not raw_data:
+                        st.error("❌ Please generate a preview before importing.")
+                    else:
+                        total_days = len(raw_data)
+                        total_orders = sum(
+                            len(v.get("orders", []))
+                            for v in raw_data.values()
+                            if isinstance(v, dict)
+                        )
+
+                        day_data_list = []
+                        for date_key, day_info in raw_data.items():
+                            try:
+                                day_date = pd.to_datetime(date_key).date()
+                            except Exception:
+                                continue
+
+                            orders = day_info.get("orders", [])
+                            orders_clean = []
+                            for o in orders:
+                                if isinstance(o, dict):
+                                    orders_clean.append({
+                                        "sales": float(o.get("sales", 0.0) or 0.0),
+                                        "profit": float(o.get("profit", 0.0) or 0.0),
+                                    })
+
+                            day_data_list.append({
+                                "date": day_date,
+                                "ad_spend": float(day_info.get("ad_spend", 0.0)),
+                                "visitors": int(day_info.get("visitors", 1)),
+                                "orders": orders_clean,
+                            })
+
+                        populate_from_structured_data(day_data_list)
+                        st.session_state["json_import_success"] = f"Imported {total_days} days and {total_orders} orders."
+                        st.session_state["import_sync"] = True
+                except Exception as e:
+                    st.error(f"❌ Unexpected error while importing JSON: {e}")
+
+            if "json_import_success" in st.session_state:
+                st.success("✅ " + st.session_state["json_import_success"])
+
+        # ---------------------- CSV IMPORT ---------------------- #
+        elif file_name.endswith(".csv"):
+
+            if st.button("Preview CSV data"):
+                try:
+                    raw_bytes = file_obj.getvalue()
+                    df_test = pd.read_csv(pd.io.common.BytesIO(raw_bytes))
+                    st.session_state["csv_preview"] = df_test
+                    st.success("Preview generated successfully.")
+                except Exception as e:
+                    st.error(f"❌ Could not read CSV: {e}")
+
+            if "csv_preview" in st.session_state:
+                st.markdown("### 🔍 Preview of CSV")
+                st.dataframe(st.session_state["csv_preview"], use_container_width=True)
+
+                st.markdown("### 🧪 Validation report")
+                required_cols = {"date", "order_index", "sales", "profit", "ad_spend", "visitors"}
+                missing_cols = required_cols - set(st.session_state["csv_preview"].columns)
+
+                if missing_cols:
+                    st.error(f"❌ Missing columns: {', '.join(missing_cols)}")
+                else:
+                    st.success("All required columns present.")
+
+            if st.button("Import CSV data"):
+                try:
+                    df_test = st.session_state.get("csv_preview", None)
+                    if df_test is None:
+                        st.error("❌ Please generate a preview before importing.")
+                    else:
+                        total_days = df_test["date"].nunique()
+                        total_orders = len(df_test)
+
+                        parse_csv_bulk(pd.io.common.BytesIO(file_obj.getvalue()))
+                        st.session_state["json_import_success"] = f"Imported {total_days} days and {total_orders} orders."
+                        st.session_state["import_sync"] = True
+                except Exception as e:
+                    st.error(f"❌ Could not import CSV: {e}")
+
+            if "json_import_success" in st.session_state:
+                st.success("✅ " + st.session_state["json_import_success"])
+
+        else:
+            st.warning("⚠️ Unsupported file type. Please upload a .json or .csv file.")
 
     # ---------------------- Tab 3: KPIs ---------------------- #
     with tabs[2]:
