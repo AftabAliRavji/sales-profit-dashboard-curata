@@ -8,9 +8,9 @@ import plotly.express as px
 from supabase_client import (
     load_session_from_supabase,
     save_session_to_supabase,
-    load_global_state,     # ← now valid again
+    load_global_state,  # ← now valid again
     save_global_state,
-    get_supabase
+    get_supabase,
 )
 
 
@@ -26,8 +26,10 @@ def init_auth_state():
     if "user_id" not in st.session_state:
         st.session_state["user_id"] = None
 
+
 # --------------------- timestamp helpers -------------------- #
 from datetime import datetime, timezone
+
 
 def pretty_time(ts):
     try:
@@ -80,7 +82,8 @@ def get_app_state_keys():
             or k.startswith("day_")
             or k.startswith("ad_spend_day_")
             or k.startswith("expander_open_day_")
-            or k in [
+            or k
+            in [
                 "days",
                 "start_date",
                 "fx_rate",
@@ -165,7 +168,10 @@ def reset_session_state():
 def init_default_state():
     if "days" not in st.session_state:
         st.session_state["days"] = 7
-    if "start_date" not in st.session_state and "import_start_date" not in st.session_state:
+    if (
+        "start_date" not in st.session_state
+        and "import_start_date" not in st.session_state
+    ):
         st.session_state["start_date"] = date.today()
     if "fx_rate" not in st.session_state:
         live_rate = fetch_live_fx_rate()
@@ -263,6 +269,7 @@ def populate_from_structured_data(day_data_list):
 #  Curata Dashboard — Core Logic (Rebuilt & Polished)
 #  Part 2 of 6
 # ============================================================
+
 
 def parse_json_bulk(file):
     """
@@ -391,6 +398,7 @@ def parse_csv_bulk(file):
 #  Main app — header, sidebar, tabs, and Tab 1 (Inputs)
 # ============================================================
 
+
 def main_app():
     # Debug line to confirm user_id
     st.write("Logged in as:", st.session_state.get("user_id"))
@@ -398,13 +406,15 @@ def main_app():
     init_default_state()
 
     # Load GLOBAL state on first run after login
-    if st.session_state.get("authenticated") and "session_restored" not in st.session_state:
+    if (
+        st.session_state.get("authenticated")
+        and "session_restored" not in st.session_state
+    ):
         loaded = load_global_state()
         if loaded:
             apply_session_dict(loaded["session_json"])
             st.session_state["last_updated"] = loaded["last_updated"]
         st.session_state["session_restored"] = True
-
 
     # ---------------------- Global CSS ---------------------- #
     st.markdown(
@@ -479,13 +489,13 @@ def main_app():
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
     # ---------------------- Sidebar ---------------------- #
-    st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('user_id', 'Unknown')}")
+    st.sidebar.markdown(
+        f"**Logged in as:** {st.session_state.get('user_id', 'Unknown')}"
+    )
     # Show last updated timestamp
     if "last_updated" in st.session_state and st.session_state["last_updated"]:
         pretty = pretty_time(st.session_state["last_updated"])
         st.sidebar.markdown(f"**Last updated:** {pretty}")
-
-
 
     if st.sidebar.button("Refresh FX rate (USD → GBP)"):
         new_rate = fetch_live_fx_rate()
@@ -500,7 +510,6 @@ def main_app():
         if st.session_state.get("authenticated"):
             session_dict = export_session_state_dict()
             save_global_state(session_dict)
-
 
         st.session_state["authenticated"] = False
         st.session_state["user_id"] = None
@@ -517,12 +526,11 @@ def main_app():
             "Export",
             "Session JSON",
             "Summary Charts",
-            "Admin",   # 👈 Add this line
+            "Admin",  # 👈 Add this line
         ]
     )
-    
-    daily_rows = []
 
+    daily_rows = []
 
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
@@ -531,7 +539,9 @@ def main_app():
         if st.session_state.get("import_sync"):
             st.session_state["start_date"] = st.session_state["import_start_date"]
             st.session_state["days"] = st.session_state["import_days"]
-            st.session_state["visitors_per_day"] = st.session_state.get("import_visitors_per_day", 1)
+            st.session_state["visitors_per_day"] = st.session_state.get(
+                "import_visitors_per_day", 1
+            )
             st.session_state["import_sync"] = False
             st.rerun()
 
@@ -706,12 +716,14 @@ def main_app():
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
 
+
 # ---------------------- Tab 2: Bulk Import ---------------------- #
 with tabs[1]:
     st.subheader("📥 Bulk import daily data (JSON or CSV)")
 
     # --- Styling fixes ---
-    st.markdown("""
+    st.markdown(
+        """
     <style>
     .stFileUploader label { background: none !important; border: none !important; padding: 0 !important; margin-bottom: 0.4rem !important; box-shadow: none !important; cursor: default !important; font-size: 1rem !important; font-weight: 700 !important; color: #ffffff !important; }
     .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
@@ -752,9 +764,12 @@ with tabs[1]:
         font-size: 0.9rem !important;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("""
+    st.markdown(
+        """
 **JSON example:**
 
 {
@@ -769,15 +784,14 @@ with tabs[1]:
 
 date,order_index,sales,profit,ad_spend,visitors
 2026-01-08,1,87.48,26.98,64,120
-""")
+"""
+    )
 
     st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
     # --- File uploader ---
     uploaded_bulk = st.file_uploader(
-        "Upload bulk data file",
-        type=["json", "csv"],
-        key="bulk_import_uploader"
+        "Upload bulk data file", type=["json", "csv"], key="bulk_import_uploader"
     )
 
     if uploaded_bulk is not None:
@@ -789,11 +803,14 @@ date,order_index,sales,profit,ad_spend,visitors
         file_name = file_obj.name.lower()
         file_size_kb = round(len(file_obj.getvalue()) / 1024, 1)
 
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div style="margin-top: 0.4rem; font-weight: 700; color: #ffffff;">
             {file_obj.name} &nbsp; <span style="font-weight: 500;">{file_size_kb}KB</span>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         # ---------------------- JSON IMPORT ---------------------- #
         if file_name.endswith(".json"):
@@ -812,12 +829,17 @@ date,order_index,sales,profit,ad_spend,visitors
                 except Exception as e:
                     st.error(f"❌ Could not parse JSON: {e}")
 
-            if st.session_state.get("json_preview_triggered") and "json_preview_raw" in st.session_state:
+            if (
+                st.session_state.get("json_preview_triggered")
+                and "json_preview_raw" in st.session_state
+            ):
                 st.markdown("### 🔍 Preview of parsed JSON")
                 raw_data = st.session_state["json_preview_raw"]
 
                 for date_key, day_data in raw_data.items():
-                    with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
+                    with st.expander(
+                        f"{date_key} — {len(day_data.get('orders', []))} orders"
+                    ):
                         st.json(day_data)
 
                 st.markdown("### 🧪 Validation report")
@@ -825,17 +847,25 @@ date,order_index,sales,profit,ad_spend,visitors
 
                 for date_key, day_data in raw_data.items():
                     if not isinstance(day_data, dict):
-                        validation_messages.append(f"❌ {date_key} is not a valid object.")
+                        validation_messages.append(
+                            f"❌ {date_key} is not a valid object."
+                        )
                         continue
 
                     required_fields = ["ad_spend", "visitors", "orders"]
                     missing = [f for f in required_fields if f not in day_data]
 
                     if missing:
-                        validation_messages.append(f"⚠️ {date_key} missing fields: {', '.join(missing)}")
+                        validation_messages.append(
+                            f"⚠️ {date_key} missing fields: {', '.join(missing)}"
+                        )
 
-                    if "orders" in day_data and not isinstance(day_data["orders"], list):
-                        validation_messages.append(f"❌ {date_key} orders must be a list.")
+                    if "orders" in day_data and not isinstance(
+                        day_data["orders"], list
+                    ):
+                        validation_messages.append(
+                            f"❌ {date_key} orders must be a list."
+                        )
 
                 if validation_messages:
                     for msg in validation_messages:
@@ -867,20 +897,28 @@ date,order_index,sales,profit,ad_spend,visitors
                             orders_clean = []
                             for o in orders:
                                 if isinstance(o, dict):
-                                    orders_clean.append({
-                                        "sales": float(o.get("sales", 0.0) or 0.0),
-                                        "profit": float(o.get("profit", 0.0) or 0.0),
-                                    })
+                                    orders_clean.append(
+                                        {
+                                            "sales": float(o.get("sales", 0.0) or 0.0),
+                                            "profit": float(
+                                                o.get("profit", 0.0) or 0.0
+                                            ),
+                                        }
+                                    )
 
-                            day_data_list.append({
-                                "date": day_date,
-                                "ad_spend": float(day_info.get("ad_spend", 0.0)),
-                                "visitors": int(day_info.get("visitors", 1)),
-                                "orders": orders_clean,
-                            })
+                            day_data_list.append(
+                                {
+                                    "date": day_date,
+                                    "ad_spend": float(day_info.get("ad_spend", 0.0)),
+                                    "visitors": int(day_info.get("visitors", 1)),
+                                    "orders": orders_clean,
+                                }
+                            )
 
                         populate_from_structured_data(day_data_list)
-                        st.session_state["json_import_success"] = f"Imported {total_days} days and {total_orders} orders."
+                        st.session_state[
+                            "json_import_success"
+                        ] = f"Imported {total_days} days and {total_orders} orders."
                         st.session_state["import_sync"] = True
                 except Exception as e:
                     st.error(f"❌ Unexpected error while importing JSON: {e}")
@@ -905,8 +943,17 @@ date,order_index,sales,profit,ad_spend,visitors
                 st.dataframe(st.session_state["csv_preview"], use_container_width=True)
 
                 st.markdown("### 🧪 Validation report")
-                required_cols = {"date", "order_index", "sales", "profit", "ad_spend", "visitors"}
-                missing_cols = required_cols - set(st.session_state["csv_preview"].columns)
+                required_cols = {
+                    "date",
+                    "order_index",
+                    "sales",
+                    "profit",
+                    "ad_spend",
+                    "visitors",
+                }
+                missing_cols = required_cols - set(
+                    st.session_state["csv_preview"].columns
+                )
 
                 if missing_cols:
                     st.error(f"❌ Missing columns: {', '.join(missing_cols)}")
@@ -923,7 +970,9 @@ date,order_index,sales,profit,ad_spend,visitors
                         total_orders = len(df_test)
 
                         parse_csv_bulk(pd.io.common.BytesIO(file_obj.getvalue()))
-                        st.session_state["json_import_success"] = f"Imported {total_days} days and {total_orders} orders."
+                        st.session_state[
+                            "json_import_success"
+                        ] = f"Imported {total_days} days and {total_orders} orders."
                         st.session_state["import_sync"] = True
                 except Exception as e:
                     st.error(f"❌ Could not import CSV: {e}")
@@ -994,7 +1043,9 @@ date,order_index,sales,profit,ad_spend,visitors
             st.markdown("### Weekly summary")
             weekly = (
                 df_summary.groupby(
-                    df_summary["Date"].dt.to_period("W").apply(lambda r: r.start_time.date())
+                    df_summary["Date"]
+                    .dt.to_period("W")
+                    .apply(lambda r: r.start_time.date())
                 )
                 .agg(
                     {
@@ -1082,7 +1133,7 @@ date,order_index,sales,profit,ad_spend,visitors
         st.markdown("### Export session state (JSON)")
 
         session_json = json.dumps(export_session_state_dict(), indent=2, default=str)
-        
+
         st.download_button(
             label="Download session JSON",
             data=session_json,
@@ -1133,18 +1184,12 @@ date,order_index,sales,profit,ad_spend,visitors
                 y=["Sales ($)", "Profit ($)"],
                 barmode="group",
                 title="Daily Sales & Profit ($)",
-                color_discrete_map={
-                    "Sales ($)": "#2563eb",
-                    "Profit ($)": "#16a34a"
-                }
+                color_discrete_map={"Sales ($)": "#2563eb", "Profit ($)": "#16a34a"},
             )
 
             fig_daily.update_traces(texttemplate="%{y:.2f}", textposition="outside")
             fig_daily.update_layout(
-                xaxis_title="Date",
-                yaxis_title="Amount ($)",
-                bargap=0.25,
-                height=450
+                xaxis_title="Date", yaxis_title="Amount ($)", bargap=0.25, height=450
             )
 
             st.plotly_chart(fig_daily, use_container_width=True)
@@ -1157,14 +1202,16 @@ date,order_index,sales,profit,ad_spend,visitors
 
         if not df.empty and fx_rate:
             df_daily_gbp = df.copy()
-            df_daily_gbp["Profit After Ads (£)"] = df_daily_gbp["Profit After Ads ($)"] * fx_rate
+            df_daily_gbp["Profit After Ads (£)"] = (
+                df_daily_gbp["Profit After Ads ($)"] * fx_rate
+            )
 
             fig2 = px.bar(
                 df_daily_gbp,
                 x="Date",
                 y="Profit After Ads (£)",
                 text="Profit After Ads (£)",
-                color_discrete_sequence=["#7c3aed"]
+                color_discrete_sequence=["#7c3aed"],
             )
 
             fig2.update_traces(texttemplate="%{text:.2f}", textposition="outside")
@@ -1173,7 +1220,7 @@ date,order_index,sales,profit,ad_spend,visitors
                 xaxis_title="Date",
                 yaxis_title="Profit After Ads (£)",
                 bargap=0.3,
-                height=450
+                height=450,
             )
 
             st.plotly_chart(fig2, use_container_width=True)
@@ -1200,31 +1247,27 @@ date,order_index,sales,profit,ad_spend,visitors
             )
 
             fig_orders_visitors.update_traces(
-                texttemplate="%{y}",
-                textposition="outside"
+                texttemplate="%{y}", textposition="outside"
             )
 
             fig_orders_visitors.update_layout(
-                xaxis_title="Date",
-                yaxis_title="Count",
-                bargap=0.25,
-                height=450
+                xaxis_title="Date", yaxis_title="Count", bargap=0.25, height=450
             )
 
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
-            
+
     # ---------------------- Tab 8: Admin ---------------------- #
     with tabs[7]:
         st.header("Admin Tools")
-    
+
         supabase = get_supabase()
-    
+
         # ============================
         # VERSION HISTORY
         # ============================
         st.subheader("📜 Version History")
         st.caption("View the last 10 saved versions of the global state.")
-    
+
         try:
             versions = (
                 supabase.table("curata_global_versions")
@@ -1233,7 +1276,7 @@ date,order_index,sales,profit,ad_spend,visitors
                 .limit(10)
                 .execute()
             )
-    
+
             for v in versions.data:
                 lock_status = "🔒 Locked" if v.get("locked") else "🔓 Unlocked"
                 st.markdown(
@@ -1241,15 +1284,15 @@ date,order_index,sales,profit,ad_spend,visitors
                 )
         except Exception as e:
             st.error("Failed to load version history.")
-    
+
         st.markdown("---")
-    
+
         # ============================
         # AUDIT LOG
         # ============================
         st.subheader("🔍 Audit Log")
         st.caption("See who saved what and when.")
-    
+
         try:
             logs = (
                 supabase.table("curata_global_audit")
@@ -1258,33 +1301,33 @@ date,order_index,sales,profit,ad_spend,visitors
                 .limit(10)
                 .execute()
             )
-    
+
             for log in logs.data:
                 st.markdown(
                     f"- `{log['user_id']}` performed **{log['action']}** at {log['timestamp']}"
                 )
         except Exception as e:
             st.error("Failed to load audit log.")
-    
+
         st.markdown("---")
-    
+
         # ============================
         # RESTORE LATEST BACKUP
         # ============================
         st.subheader("🧩 Restore Latest Backup")
         st.caption("Restore the most recent JSON backup from Supabase Storage.")
-    
+
         if st.button("Restore Latest Backup"):
             try:
                 files = supabase.storage.from_("curata_backups").list()
-    
+
                 if files:
                     sorted_files = sorted(files, key=lambda f: f["name"], reverse=True)
                     latest = sorted_files[0]["name"]
-    
+
                     content = supabase.storage.from_("curata_backups").download(latest)
                     restored = json.loads(content)
-    
+
                     apply_session_dict(restored)
                     st.session_state["restored_from_backup"] = latest
                     st.success(f"Restored from backup: {latest}")
@@ -1292,15 +1335,15 @@ date,order_index,sales,profit,ad_spend,visitors
                     st.warning("No backups found.")
             except Exception as e:
                 st.error("Restore failed.")
-    
+
         st.markdown("---")
-    
+
         # ============================
         # RESTORE FROM SPECIFIC VERSION
         # ============================
         st.subheader("🗂 Restore From Version")
         st.caption("Pick a version and restore its state.")
-    
+
         try:
             version_list = (
                 supabase.table("curata_global_versions")
@@ -1309,17 +1352,21 @@ date,order_index,sales,profit,ad_spend,visitors
                 .limit(20)
                 .execute()
             )
-    
+
             version_options = {
-                f"Version {v['version_id']} — {v['created_at']} {'🔒' if v.get('locked') else ''}": v["version_id"]
+                f"Version {v['version_id']} — {v['created_at']} {'🔒' if v.get('locked') else ''}": v[
+                    "version_id"
+                ]
                 for v in version_list.data
             }
-    
-            selected_version = st.selectbox("Choose version to restore:", list(version_options.keys()))
-    
+
+            selected_version = st.selectbox(
+                "Choose version to restore:", list(version_options.keys())
+            )
+
             if st.button("Restore Selected Version"):
                 version_id = version_options[selected_version]
-    
+
                 version_data = (
                     supabase.table("curata_global_versions")
                     .select("session_json")
@@ -1327,67 +1374,70 @@ date,order_index,sales,profit,ad_spend,visitors
                     .single()
                     .execute()
                 )
-    
+
                 apply_session_dict(version_data.data["session_json"])
                 st.success(f"Restored Version {version_id}")
         except Exception as e:
             st.error("Failed to load versions.")
-    
+
         st.markdown("---")
-    
+
         # ============================
         # LOCK VERSION
         # ============================
         st.subheader("🔒 Lock Version")
         st.caption("Lock a version to prevent overwrites or deletion.")
-    
+
         try:
             lock_options = {
                 f"Version {v['version_id']} — {v['created_at']}": v["version_id"]
                 for v in version_list.data
                 if not v.get("locked")
             }
-    
-            version_to_lock = st.selectbox("Choose version to lock:", list(lock_options.keys()))
-    
+
+            version_to_lock = st.selectbox(
+                "Choose version to lock:", list(lock_options.keys())
+            )
+
             if st.button("Lock Selected Version"):
                 version_id = lock_options[version_to_lock]
-    
-                supabase.table("curata_global_versions").update({"locked": True}).eq("version_id", version_id).execute()
-    
+
+                supabase.table("curata_global_versions").update({"locked": True}).eq(
+                    "version_id", version_id
+                ).execute()
+
                 st.success(f"Version {version_id} is now locked.")
         except Exception as e:
             st.error("Failed to lock version.")
-    
+
         st.markdown("---")
-    
+
         # ============================
         # DOWNLOAD LATEST BACKUP
         # ============================
         st.subheader("⬇️ Download Latest Backup")
         st.caption("Download the most recent JSON backup file.")
-    
+
         if st.button("Download Backup"):
             try:
                 files = supabase.storage.from_("curata_backups").list()
-    
+
                 if files:
                     sorted_files = sorted(files, key=lambda f: f["name"], reverse=True)
                     latest = sorted_files[0]["name"]
-    
+
                     content = supabase.storage.from_("curata_backups").download(latest)
-    
+
                     st.download_button(
                         label="Download Backup JSON",
                         data=content,
                         file_name=latest,
-                        mime="application/json"
+                        mime="application/json",
                     )
                 else:
                     st.warning("No backups found.")
             except Exception as e:
                 st.error("Download failed.")
-
 
     # ---------------------- Auto-save to Supabase ---------------------- #
     # Auto-save after every interaction
@@ -1395,7 +1445,6 @@ date,order_index,sales,profit,ad_spend,visitors
         session_dict = export_session_state_dict()
         save_global_state(session_dict)
         st.sidebar.success("✅ Global state saved.")
-
 
 
 # ============================================================
