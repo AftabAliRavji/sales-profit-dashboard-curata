@@ -162,8 +162,7 @@ def save_global_state(session_dict: dict):
         backup_name = f"backup_{datetime.utcnow().isoformat()}.json"
         supabase.storage.from_("curata_backups").upload(
         backup_name,
-        json.dumps(safe_dict).encode("utf-8"),
-        {"content-type": "application/json"}
+        json.dumps(safe_dict).encode("utf-8")
         )
     except Exception as e:
         print("❌ Backup failed:", e)
