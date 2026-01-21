@@ -216,7 +216,7 @@ def populate_from_structured_data(day_data_list):
             ...
         ]
     }
-    Populates BOTH import_* keys AND the live UI keys.
+    Populates import_* keys and per‑day/per‑order keys.
     """
 
     if not day_data_list:
@@ -227,35 +227,30 @@ def populate_from_structured_data(day_data_list):
     day_data_list = sorted(day_data_list, key=lambda d: d["date"])
 
     # -----------------------------
-    # IMPORT LAYER (for preview + validation)
+    # IMPORT LAYER
     # -----------------------------
     st.session_state["import_start_date"] = day_data_list[0]["date"]
-    st.session_state["import_days"] = len(day_data_list)
-    st.session_state["import_sync"] = True
+    st.session_state["imported_days_count"] = len(day_data_list)
 
-    # -----------------------------
-    # UI LAYER (actual dashboard state)
-    # -----------------------------
+    imported_days = []
+    imported_visitors = []
+
+    # Clear old dynamic state
     clear_day_state()
 
-    days_list = []
-    visitors_list = []
-
+    # Populate per‑day and per‑order keys
     for idx, day_info in enumerate(day_data_list):
         day_date = day_info["date"]
         ad_spend = float(day_info.get("ad_spend", 0.0) or 0.0)
         visitors = int(day_info.get("visitors", 1) or 1)
         orders = day_info.get("orders", [])
 
-        # Track days + visitors for UI
-        days_list.append(day_date)
-        visitors_list.append(visitors)
+        imported_days.append(day_date)
+        imported_visitors.append(visitors)
 
-        # Per‑day keys
         st.session_state[f"ad_spend_day_{idx}"] = ad_spend
         st.session_state[f"orders_day_{idx}"] = max(1, len(orders))
 
-        # Per‑order keys
         num_orders = st.session_state[f"orders_day_{idx}"]
         for order_index in range(1, num_orders + 1):
             sales_key = f"day_{idx}_order_{order_index}_sales"
@@ -269,12 +264,15 @@ def populate_from_structured_data(day_data_list):
                 st.session_state[sales_key] = 0.0
                 st.session_state[profit_key] = 0.0
 
-    # Final UI keys
-    st.session_state["days"] = days_list
-    st.session_state["visitors_per_day"] = visitors_list
+    # Store import lists
+    st.session_state["imported_days"] = imported_days
+    st.session_state["imported_visitors"] = imported_visitors
 
-    # Success message (no rerun here)
+    # Signal UI to sync on next render
+    st.session_state["import_sync"] = True
+
     st.success("Bulk data imported successfully.")
+
 
 
 
@@ -544,6 +542,13 @@ def main_app():
     )
 
     daily_rows = []
+    # ---------------------- IMPORT SYNC (must run BEFORE widgets) ---------------------- #
+    if st.session_state.get("import_sync"):
+        st.session_state["start_date"] = st.session_state["import_start_date"]
+        st.session_state["days"] = st.session_state["imported_days_count"]
+        st.session_state["visitors_per_day"] = st.session_state["imported_visitors"]
+        st.session_state["import_sync"] = False
+        st.rerun()
 
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
@@ -892,14 +897,8 @@ def main_app():
                         if not raw_data:
                             st.error("❌ Please generate a preview before importing.")
                         else:
-                            total_days = len(raw_data)
-                            total_orders = sum(
-                                len(v.get("orders", []))
-                                for v in raw_data.values()
-                                if isinstance(v, dict)
-                            )
-
                             day_data_list = []
+
                             for date_key, day_info in raw_data.items():
                                 try:
                                     day_date = pd.to_datetime(date_key).date()
@@ -913,9 +912,7 @@ def main_app():
                                         orders_clean.append(
                                             {
                                                 "sales": float(o.get("sales", 0.0) or 0.0),
-                                                "profit": float(
-                                                    o.get("profit", 0.0) or 0.0
-                                                ),
+                                                "profit": float(o.get("profit", 0.0) or 0.0),
                                             }
                                         )
 
@@ -929,10 +926,9 @@ def main_app():
                                 )
 
                             populate_from_structured_data(day_data_list)
-                            st.session_state[
-                                "json_import_success"
-                            ] = f"Imported {total_days} days and {total_orders} orders."
-                            st.session_state["import_sync"] = True
+                            st.toast("Import complete!", icon="🎉")
+                            st.rerun()
+
                     except Exception as e:
                         st.error(f"❌ Unexpected error while importing JSON: {e}")
 
