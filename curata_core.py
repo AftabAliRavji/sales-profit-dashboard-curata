@@ -818,111 +818,118 @@ date,order_index,sales,profit,ad_spend,visitors
                 unsafe_allow_html=True,
             )
 
-            # ---------------------- JSON IMPORT ---------------------- #
-            if file_name.endswith(".json"):
+# ---------------------- JSON IMPORT ---------------------- #
+if file_name.endswith(".json"):
 
-                if st.button("Preview JSON data"):
+    # Preview button
+    if st.button("Preview JSON data"):
+        try:
+            raw_bytes = file_obj.getvalue()
+            data = json.loads(raw_bytes.decode("utf-8"))
+
+            if not isinstance(data, dict):
+                st.error("JSON must be an object with dates as keys.")
+            else:
+                st.session_state["json_preview_raw"] = data
+                st.success("Preview generated successfully.")
+
+        except Exception as e:
+            st.error(f"❌ Could not parse JSON: {e}")
+
+    # Show preview panel
+    if "json_preview_raw" in st.session_state:
+        st.markdown("### 🔍 Preview of parsed JSON")
+
+        raw_data = st.session_state["json_preview_raw"]
+
+        for date_key, day_data in raw_data.items():
+            with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
+                st.json(day_data)
+
+        # Validation
+        st.markdown("### 🧪 Validation report")
+        validation_messages = []
+
+        for date_key, day_data in raw_data.items():
+            if not isinstance(day_data, dict):
+                validation_messages.append(f"❌ {date_key} is not a valid object.")
+                continue
+
+            required_fields = ["ad_spend", "visitors", "orders"]
+            missing = [f for f in required_fields if f not in day_data]
+
+            if missing:
+                validation_messages.append(
+                    f"⚠️ {date_key} missing fields: {', '.join(missing)}"
+                )
+
+            if "orders" in day_data and not isinstance(day_data["orders"], list):
+                validation_messages.append(
+                    f"❌ {date_key} orders must be a list."
+                )
+
+        if validation_messages:
+            for msg in validation_messages:
+                st.warning(msg)
+        else:
+            st.success("All dates validated successfully.")
+
+    # Import button
+    if st.button("Import JSON data"):
+        try:
+            raw_data = st.session_state.get("json_preview_raw", None)
+            if not raw_data:
+                st.error("❌ Please generate a preview before importing.")
+            else:
+                total_days = len(raw_data)
+                total_orders = sum(
+                    len(v.get("orders", []))
+                    for v in raw_data.values()
+                    if isinstance(v, dict)
+                )
+
+                # Convert raw_data into structured list
+                day_data_list = []
+                for date_key, day_info in raw_data.items():
                     try:
-                        raw_bytes = file_obj.getvalue()
-                        data = json.loads(raw_bytes.decode("utf-8"))
+                        day_date = pd.to_datetime(date_key).date()
+                    except Exception:
+                        continue
 
-                        if not isinstance(data, dict):
-                            st.error("JSON must be an object with dates as keys.")
-                        else:
-                            st.session_state["json_preview_raw"] = data
-                            st.success("Preview generated successfully.")
-
-                    except Exception as e:
-                        st.error(f"❌ Could not parse JSON: {e}")
-
-                # Show preview panel
-                if "json_preview_raw" in st.session_state:
-                    st.markdown("### 🔍 Preview of parsed JSON")
-
-                    raw_data = st.session_state["json_preview_raw"]
-
-                    for date_key, day_data in raw_data.items():
-                        with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
-                            st.json(day_data)
-
-                    # Validation
-                    st.markdown("### 🧪 Validation report")
-                    validation_messages = []
-
-                    for date_key, day_data in raw_data.items():
-                        if not isinstance(day_data, dict):
-                            validation_messages.append(f"❌ {date_key} is not a valid object.")
-                            continue
-
-                        required_fields = ["ad_spend", "visitors", "orders"]
-                        missing = [f for f in required_fields if f not in day_data]
-
-                        if missing:
-                            validation_messages.append(
-                                f"⚠️ {date_key} missing fields: {', '.join(missing)}"
+                    orders = day_info.get("orders", [])
+                    orders_clean = []
+                    for o in orders:
+                        if isinstance(o, dict):
+                            orders_clean.append(
+                                {
+                                    "sales": float(o.get("sales", 0.0) or 0.0),
+                                    "profit": float(o.get("profit", 0.0) or 0.0),
+                                }
                             )
 
-                        if "orders" in day_data and not isinstance(day_data["orders"], list):
-                            validation_messages.append(
-                                f"❌ {date_key} orders must be a list."
-                            )
+                    day_data_list.append(
+                        {
+                            "date": day_date,
+                            "ad_spend": float(day_info.get("ad_spend", 0.0)),
+                            "visitors": int(day_info.get("visitors", 1)),
+                            "orders": orders_clean,
+                        }
+                    )
 
-                    if validation_messages:
-                        for msg in validation_messages:
-                            st.warning(msg)
-                    else:
-                        st.success("All dates validated successfully.")
+                populate_from_structured_data(day_data_list)
 
-                # Import button
-                if st.button("Import JSON data"):
-                    try:
-                        raw_data = st.session_state.get("json_preview_raw", None)
-                        if not raw_data:
-                            st.error("❌ Please generate a preview before importing.")
-                        else:
-                            total_days = len(raw_data)
-                            total_orders = sum(
-                                len(v.get("orders", []))
-                                for v in raw_data.values()
-                                if isinstance(v, dict)
-                            )
+                # Persistent success message
+                st.session_state["json_import_success"] = (
+                    f"Imported {total_days} days and {total_orders} orders."
+                )
 
-                            # Convert raw_data into structured list
-                            day_data_list = []
-                            for date_key, day_info in raw_data.items():
-                                try:
-                                    day_date = pd.to_datetime(date_key).date()
-                                except Exception:
-                                    continue
+        except Exception as e:
+            st.error(f"❌ Unexpected error while importing JSON: {e}")
 
-                                orders = day_info.get("orders", [])
-                                orders_clean = []
-                                for o in orders:
-                                    if isinstance(o, dict):
-                                        orders_clean.append(
-                                            {
-                                                "sales": float(o.get("sales", 0.0) or 0.0),
-                                                "profit": float(o.get("profit", 0.0) or 0.0),
-                                            }
-                                        )
+            # Show persistent success message after rerun
+            if "json_import_success" in st.session_state:
+                st.success("✅ " + st.session_state["json_import_success"])
 
-                                day_data_list.append(
-                                    {
-                                        "date": day_date,
-                                        "ad_spend": float(day_info.get("ad_spend", 0.0)),
-                                        "visitors": int(day_info.get("visitors", 1)),
-                                        "orders": orders_clean,
-                                    }
-                                )
-
-                            populate_from_structured_data(day_data_list)
-
-                            st.success(
-                                f"✅ Imported {total_days} days and {total_orders} orders."
-                            )
-
-                    except Exception as e:
-                        st.error(f"❌ Unexpected error while importing JSON: {e}")
 
             # ---------------------- CSV IMPORT ---------------------- #
             elif file_name.endswith(".csv"):
