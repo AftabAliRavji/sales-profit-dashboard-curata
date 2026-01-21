@@ -78,26 +78,26 @@ def get_app_state_keys():
         if k in ["authenticated", "user_id", "session_restored"]:
             continue
         if (
-            k.startswith("orders_day_")
-            or k.startswith("day_")
-            or k.startswith("ad_spend_day_")
-            or k.startswith("expander_open_day_")
-            or k
-            in [
-                "days",
-                "start_date",
-                "fx_rate",
-                "default_ad_spend",
-                "visitors_per_day",
-                "daily_df",
-                "import_start_date",
-                "import_days",
-                "import_visitors_per_day",
-                "import_sync",
-                "uploaded_bulk_file",
-                "json_preview_raw",
-                "csv_preview",
-            ]
+                k.startswith("orders_day_")
+                or k.startswith("day_")
+                or k.startswith("ad_spend_day_")
+                or k.startswith("expander_open_day_")
+                or k
+                in [
+            "days",
+            "start_date",
+            "fx_rate",
+            "default_ad_spend",
+            "visitors_per_day",
+            "daily_df",
+            "import_start_date",
+            "import_days",
+            "import_visitors_per_day",
+            "import_sync",
+            "uploaded_bulk_file",
+            "json_preview_raw",
+            "csv_preview",
+        ]
         ):
             keys.append(k)
     return keys
@@ -169,8 +169,8 @@ def init_default_state():
     if "days" not in st.session_state:
         st.session_state["days"] = 7
     if (
-        "start_date" not in st.session_state
-        and "import_start_date" not in st.session_state
+            "start_date" not in st.session_state
+            and "import_start_date" not in st.session_state
     ):
         st.session_state["start_date"] = date.today()
     if "fx_rate" not in st.session_state:
@@ -196,10 +196,10 @@ def clear_day_state():
     """
     for k in list(st.session_state.keys()):
         if (
-            k.startswith("orders_day_")
-            or k.startswith("day_")
-            or k.startswith("ad_spend_day_")
-            or k.startswith("expander_open_day_")
+                k.startswith("orders_day_")
+                or k.startswith("day_")
+                or k.startswith("ad_spend_day_")
+                or k.startswith("expander_open_day_")
         ):
             st.session_state.pop(k, None)
 
@@ -407,8 +407,8 @@ def main_app():
 
     # Load GLOBAL state on first run after login
     if (
-        st.session_state.get("authenticated")
-        and "session_restored" not in st.session_state
+            st.session_state.get("authenticated")
+            and "session_restored" not in st.session_state
     ):
         loaded = load_global_state()
         if loaded:
@@ -622,8 +622,8 @@ def main_app():
                 st.session_state[expander_key] = False
 
             with st.expander(
-                f"Orders for {day_label} (Total: {current_orders})",
-                expanded=st.session_state[expander_key],
+                    f"Orders for {day_label} (Total: {current_orders})",
+                    expanded=st.session_state[expander_key],
             ):
                 c1, c2, _ = st.columns([1, 1, 1])
 
@@ -830,15 +830,15 @@ date,order_index,sales,profit,ad_spend,visitors
                     st.error(f"❌ Could not parse JSON: {e}")
 
             if (
-                st.session_state.get("json_preview_triggered")
-                and "json_preview_raw" in st.session_state
+                    st.session_state.get("json_preview_triggered")
+                    and "json_preview_raw" in st.session_state
             ):
                 st.markdown("### 🔍 Preview of parsed JSON")
                 raw_data = st.session_state["json_preview_raw"]
 
                 for date_key, day_data in raw_data.items():
                     with st.expander(
-                        f"{date_key} — {len(day_data.get('orders', []))} orders"
+                            f"{date_key} — {len(day_data.get('orders', []))} orders"
                     ):
                         st.json(day_data)
 
@@ -861,7 +861,7 @@ date,order_index,sales,profit,ad_spend,visitors
                         )
 
                     if "orders" in day_data and not isinstance(
-                        day_data["orders"], list
+                            day_data["orders"], list
                     ):
                         validation_messages.append(
                             f"❌ {date_key} orders must be a list."
@@ -1203,7 +1203,7 @@ date,order_index,sales,profit,ad_spend,visitors
         if not df.empty and fx_rate:
             df_daily_gbp = df.copy()
             df_daily_gbp["Profit After Ads (£)"] = (
-                df_daily_gbp["Profit After Ads ($)"] * fx_rate
+                    df_daily_gbp["Profit After Ads ($)"] * fx_rate
             )
 
             fig2 = px.bar(
@@ -1445,7 +1445,6 @@ date,order_index,sales,profit,ad_spend,visitors
         session_dict = export_session_state_dict()
         save_global_state(session_dict)
         st.sidebar.success("✅ Global state saved.")
-
 
 # ============================================================
 #  END OF FILE — Curata Dashboard (Supabase-integrated)
