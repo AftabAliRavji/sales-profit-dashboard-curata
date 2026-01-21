@@ -551,7 +551,13 @@ def main_app():
         ):
             st.session_state["start_date"] = st.session_state["import_start_date"]
             st.session_state["days"] = st.session_state["imported_days_count"]
-            st.session_state["visitors_per_day"] = st.session_state["imported_visitors"]
+            # Use the first day's visitors as the default global visitors_per_day
+            imported_visitors = st.session_state["imported_visitors"]
+            if isinstance(imported_visitors, list) and len(imported_visitors) > 0:
+                st.session_state["visitors_per_day"] = imported_visitors[0]
+            else:
+                st.session_state["visitors_per_day"] = 1
+
             st.session_state["import_sync"] = False
             st.rerun()
         else:
