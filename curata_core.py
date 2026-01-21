@@ -216,7 +216,7 @@ def populate_from_structured_data(day_data_list):
             ...
         ]
     }
-    Populates Streamlit session_state accordingly.
+    Populates BOTH import_* keys AND the live UI keys.
     """
 
     if not day_data_list:
@@ -226,29 +226,37 @@ def populate_from_structured_data(day_data_list):
     # Sort by date
     day_data_list = sorted(day_data_list, key=lambda d: d["date"])
 
-    # Set global controls safely
+    # -----------------------------
+    # IMPORT LAYER (for preview + validation)
+    # -----------------------------
     st.session_state["import_start_date"] = day_data_list[0]["date"]
     st.session_state["import_days"] = len(day_data_list)
-
-    # Signal that UI widgets must sync to imported data
     st.session_state["import_sync"] = True
 
-    # Clear old dynamic state
+    # -----------------------------
+    # UI LAYER (actual dashboard state)
+    # -----------------------------
     clear_day_state()
 
-    # Populate each day
+    days_list = []
+    visitors_list = []
+
     for idx, day_info in enumerate(day_data_list):
+        day_date = day_info["date"]
         ad_spend = float(day_info.get("ad_spend", 0.0) or 0.0)
         visitors = int(day_info.get("visitors", 1) or 1)
         orders = day_info.get("orders", [])
 
+        # Track days + visitors for UI
+        days_list.append(day_date)
+        visitors_list.append(visitors)
+
+        # Per‑day keys
         st.session_state[f"ad_spend_day_{idx}"] = ad_spend
-        st.session_state["import_visitors_per_day"] = visitors
+        st.session_state[f"orders_day_{idx}"] = max(1, len(orders))
 
-        orders_key = f"orders_day_{idx}"
-        num_orders = max(1, len(orders))
-        st.session_state[orders_key] = num_orders
-
+        # Per‑order keys
+        num_orders = st.session_state[f"orders_day_{idx}"]
         for order_index in range(1, num_orders + 1):
             sales_key = f"day_{idx}_order_{order_index}_sales"
             profit_key = f"day_{idx}_order_{order_index}_profit"
@@ -261,8 +269,13 @@ def populate_from_structured_data(day_data_list):
                 st.session_state[sales_key] = 0.0
                 st.session_state[profit_key] = 0.0
 
-    st.success("Bulk data imported successfully. Reloading…")
-    st.rerun()
+    # Final UI keys
+    st.session_state["days"] = days_list
+    st.session_state["visitors_per_day"] = visitors_list
+
+    # Success message (no rerun here)
+    st.success("Bulk data imported successfully.")
+
 
 
 # ============================================================
@@ -925,6 +938,9 @@ def main_app():
 
                 if "json_import_success" in st.session_state:
                     st.success("✅ " + st.session_state["json_import_success"])
+                    st.toast("✅ JSON import complete!", icon="📦")
+                    st.rerun()
+
 
             # ---------------------- CSV IMPORT ---------------------- #
             elif file_name.endswith(".csv"):
