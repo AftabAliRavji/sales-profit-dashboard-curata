@@ -570,19 +570,6 @@ def main_app():
     with tabs[0]:
         st.subheader("📥 Inputs")
 
-    # ---------------------- Tab 1: Inputs ---------------------- #
-    with tabs[0]:
-        st.subheader("📥 Inputs")
-        # Sync imported values BEFORE any widgets are created
-        if st.session_state.get("import_sync"):
-            st.session_state["start_date"] = st.session_state["import_start_date"]
-            st.session_state["days"] = st.session_state["import_days"]
-            st.session_state["visitors_per_day"] = st.session_state.get(
-                "import_visitors_per_day", 1
-            )
-            st.session_state["import_sync"] = False
-            st.rerun()
-
         col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 1])
 
         with col_a:
@@ -654,7 +641,6 @@ def main_app():
             orders_key = f"orders_day_{day_index}"
             current_orders = st.session_state[orders_key]
 
-            # Expander open/close state
             expander_key = f"expander_open_day_{day_index}"
             if expander_key not in st.session_state:
                 st.session_state[expander_key] = False
@@ -706,7 +692,6 @@ def main_app():
                     day_sales += sales_val
                     day_profit += profit_val
 
-            # Daily calculations
             profit_after_ads = day_profit - ad_spend
             profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
             percent_profit = (
@@ -730,7 +715,6 @@ def main_app():
                 }
             )
 
-        # Build DataFrame
         if daily_rows:
             df = pd.DataFrame(daily_rows)
         else:
@@ -754,8 +738,7 @@ def main_app():
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
 
-
-# ---------------------- Tab 2: Bulk Import ---------------------- #
+    # ---------------------- Tab 2: Bulk Import ---------------------- #
     with tabs[1]:
         st.subheader("📥 Bulk import daily data (JSON or CSV)")
 
