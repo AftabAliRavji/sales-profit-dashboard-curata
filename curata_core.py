@@ -566,6 +566,16 @@ def main_app():
             # Keys missing → disable sync safely
             st.session_state["import_sync"] = False
 
+    # ---------------------- VISITORS PER DAY NORMALISER ---------------------- #
+    raw_visitors = st.session_state.get("visitors_per_day", 1)
+
+    if isinstance(raw_visitors, list):
+        # If it's a list (from old state/import/whatever), normalise to first element
+        st.session_state["visitors_per_day"] = raw_visitors[0] if raw_visitors else 1
+    elif not isinstance(raw_visitors, (int, float)):
+        # Any other weird type → reset to 1
+        st.session_state["visitors_per_day"] = 1
+
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
         st.subheader("📥 Inputs")
