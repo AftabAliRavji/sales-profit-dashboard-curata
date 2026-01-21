@@ -544,11 +544,22 @@ def main_app():
     daily_rows = []
     # ---------------------- IMPORT SYNC (must run BEFORE widgets) ---------------------- #
     if st.session_state.get("import_sync"):
-        st.session_state["start_date"] = st.session_state["import_start_date"]
-        st.session_state["days"] = st.session_state["imported_days_count"]
-        st.session_state["visitors_per_day"] = st.session_state["imported_visitors"]
-        st.session_state["import_sync"] = False
-        st.rerun()
+        if (
+                "import_start_date" in st.session_state
+                and "imported_days_count" in st.session_state
+                and "imported_visitors" in st.session_state
+        ):
+            st.session_state["start_date"] = st.session_state["import_start_date"]
+            st.session_state["days"] = st.session_state["imported_days_count"]
+            st.session_state["visitors_per_day"] = st.session_state["imported_visitors"]
+            st.session_state["import_sync"] = False
+            st.rerun()
+        else:
+            st.session_state["import_sync"] = False
+
+    # ---------------------- Tab 1: Inputs ---------------------- #
+    with tabs[0]:
+        st.subheader("📥 Inputs")
 
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
