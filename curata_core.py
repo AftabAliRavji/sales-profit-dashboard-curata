@@ -544,6 +544,7 @@ def main_app():
     daily_rows = []
     # ---------------------- IMPORT SYNC (must run BEFORE widgets) ---------------------- #
     if st.session_state.get("import_sync"):
+        # Ensure all required import keys exist before syncing
         if (
                 "import_start_date" in st.session_state
                 and "imported_days_count" in st.session_state
@@ -551,7 +552,8 @@ def main_app():
         ):
             st.session_state["start_date"] = st.session_state["import_start_date"]
             st.session_state["days"] = st.session_state["imported_days_count"]
-            # Use the first day's visitors as the default global visitors_per_day
+
+            # 🔥 FIX: visitors_per_day must be a SINGLE NUMBER, not a list
             imported_visitors = st.session_state["imported_visitors"]
             if isinstance(imported_visitors, list) and len(imported_visitors) > 0:
                 st.session_state["visitors_per_day"] = imported_visitors[0]
@@ -561,6 +563,7 @@ def main_app():
             st.session_state["import_sync"] = False
             st.rerun()
         else:
+            # Keys missing → disable sync safely
             st.session_state["import_sync"] = False
 
     # ---------------------- Tab 1: Inputs ---------------------- #
