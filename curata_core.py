@@ -1377,8 +1377,8 @@ def main_app():
         except Exception:
             pass
 
-        # Remaining profit after withdrawal (from original profit)
-        remaining_profit = profit_after_spend - withdrawn
+        # Remaining profit after withdrawal (from net withdrawable)
+        remaining_profit = net_withdrawable - withdrawn
 
         st.markdown(
             f"""
