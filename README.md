@@ -102,10 +102,18 @@ create table if not exists curata_global_audit (
 alter table curata_global_versions
 add column if not exists locked boolean default false;
 
+create table if not exists curata_withdrawals (
+    id bigint generated always as identity primary key,
+    date date not null,
+    amount numeric not null,
+    created_at timestamp with time zone default now()
+);
+
 # select statements
 select * from  curata_global_state;
 select * from curata_global_audit;
 select * from curata_global_versions;
+select * from curata_withdrawals;
 
 ## under storage buckets
 Files
