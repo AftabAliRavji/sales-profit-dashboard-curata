@@ -1314,15 +1314,18 @@ def main_app():
 
         # ---------------------- Withdraw KPI Section ---------------------- #
 
+        # ---------------------- Withdraw KPI Section ---------------------- #
+
         st.markdown("### 💸 Withdrawable Amount (minus Sellvia fees)")
 
         # 1. Read your existing profit-after-ad-spend value
         profit_after_spend = st.session_state.get("profit_after_spend", 0.0)
 
-        # 2. Calculate withdrawable amount (7%)
-        withdrawable_amount = profit_after_spend * 0.07
+        # 2. Calculate Sellvia fee and net withdrawable
+        sellvia_fee = profit_after_spend * 0.07
+        net_withdrawable = profit_after_spend - sellvia_fee
 
-        # Display the calculated KPI
+        # Display full breakdown
         st.markdown(
             f"""
             <div style="
@@ -1332,11 +1335,12 @@ def main_app():
                 border-radius: 8px;
                 border: 1px solid #d1d5db;
                 font-weight: 600;
-                font-size: 1.1rem;
+                font-size: 1.05rem;
                 color: #111827;
             ">
-                Withdrawable Amount (7%):  
-                <span style="color:#2563eb;">£{withdrawable_amount:,.2f}</span>
+                <div>💰 <strong>Total Profit After Ad Spend:</strong> £{profit_after_spend:,.2f}</div>
+                <div>🧾 <strong>Sellvia Fee (7%):</strong> £{sellvia_fee:,.2f}</div>
+                <div>✅ <strong>Net Withdrawable Amount:</strong> <span style="color:#2563eb;">£{net_withdrawable:,.2f}</span></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1373,7 +1377,7 @@ def main_app():
         except Exception:
             pass
 
-        # Remaining profit (informational only)
+        # Remaining profit after withdrawal (from original profit)
         remaining_profit = profit_after_spend - withdrawn
 
         st.markdown(
