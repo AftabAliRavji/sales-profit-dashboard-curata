@@ -516,6 +516,28 @@ def main_app():
         else:
             st.sidebar.warning("Could not fetch live FX rate. Keeping existing value.")
 
+    # --- FX rate display box in sidebar ---
+    fx_rate_display = st.session_state.get("fx_rate", 0.0)
+
+    st.sidebar.markdown(
+        f"""
+        <div style="
+            margin-top: 0.8rem;
+            padding: 0.75rem 1rem;
+            background-color: #eef2ff;
+            border-radius: 8px;
+            border: 1px solid #c7d2fe;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #1e3a8a;
+        ">
+            💱 FX rate:<br>
+            <span style="color: #2563eb;">1 USD = {fx_rate_display:.4f} GBP</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # Sidebar logout (Option B)
     if st.sidebar.button("Log out"):
         if st.session_state.get("authenticated"):
