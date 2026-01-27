@@ -1282,11 +1282,132 @@ def main_app():
 
             st.plotly_chart(fig_orders_visitors, use_container_width=True)
 
+            st.subheader("💸 Withdrawals Over Time")
+
+            try:
+                withdrawals = (
+                    supabase.table("curata_withdrawals")
+                    .select("date, amount")
+                    .order("date", desc=False)
+                    .execute()
+                )
+
+                if withdrawals.data:
+                    df_w = pd.DataFrame(withdrawals.data)
+                    df_w["date"] = pd.to_datetime(df_w["date"])
+
+                    st.bar_chart(
+                        df_w.set_index("date")["amount"],
+                        use_container_width=True,
+                    )
+                else:
+                    st.info("No withdrawals recorded yet.")
+            except Exception:
+                st.error("Could not load withdrawals.")
+
     # ---------------------- Tab 8: Admin ---------------------- #
     with tabs[7]:
         st.header("Admin Tools")
 
         supabase = get_supabase()
+
+        # ---------------------- Withdraw KPI Section ---------------------- #
+
+        st.markdown("### 💸 Withdrawable Amount (minus Sellvia fees)")
+
+        # 1. Read your existing profit-after-ad-spend value
+        profit_after_spend = st.session_state.get("profit_after_spend", 0.0)
+
+        # 2. Calculate withdrawable amount (7%)
+        withdrawable_amount = profit_after_spend * 0.07
+
+        # Display the calculated KPI
+        st.markdown(
+            f"""
+            <div style="
+                margin-top: 0.5rem;
+                padding: 0.8rem 1rem;
+                background-color: #f3f4f6;
+                border-radius: 8px;
+                border: 1px solid #d1d5db;
+                font-weight: 600;
+                font-size: 1.1rem;
+                color: #111827;
+            ">
+                Withdrawable Amount (7%):  
+                <span style="color:#2563eb;">£{withdrawable_amount:,.2f}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---------------------- Load persisted withdrawn amount ---------------------- #
+        persisted_withdrawn = 0.0
+        try:
+            row = (
+                supabase.table("curata_global_state")
+                .select("withdrawn_amount")
+                .eq("id", 1)
+                .single()
+                .execute()
+            )
+            persisted_withdrawn = row.data.get("withdrawn_amount", 0.0)
+        except Exception:
+            pass
+
+        # Input box
+        withdrawn = st.number_input(
+            "Withdrawn amount (£)",
+            min_value=0.0,
+            step=1.0,
+            value=persisted_withdrawn,
+            key="withdrawn_amount",
+        )
+
+        # ---------------------- Persist withdrawn amount ---------------------- #
+        try:
+            supabase.table("curata_global_state").update(
+                {"withdrawn_amount": withdrawn}
+            ).eq("id", 1).execute()
+        except Exception:
+            pass
+
+        # Remaining profit (informational only)
+        remaining_profit = profit_after_spend - withdrawn
+
+        st.markdown(
+            f"""
+            <div style="
+                margin-top: 0.8rem;
+                padding: 0.8rem 1rem;
+                background-color: #ecfdf5;
+                border-radius: 8px;
+                border: 1px solid #a7f3d0;
+                font-weight: 600;
+                font-size: 1.1rem;
+                color: #065f46;
+            ">
+                Remaining Profit After Withdrawal:  
+                <span style="color:#059669;">£{remaining_profit:,.2f}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---------------------- Record Withdrawal Event ---------------------- #
+        st.markdown("### 📝 Record Withdrawal Event")
+
+        if st.button("Record Withdrawal"):
+            try:
+                supabase.table("curata_withdrawals").insert(
+                    {
+                        "date": datetime.date.today().isoformat(),
+                        "amount": withdrawn,
+                    }
+                ).execute()
+                st.success("Withdrawal recorded.")
+            except Exception as e:
+                st.error("Failed to record withdrawal.")
 
         # ============================
         # VERSION HISTORY
