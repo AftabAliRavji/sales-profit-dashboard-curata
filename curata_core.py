@@ -1023,6 +1023,7 @@ def main_app():
             total_ad_spend = float(df["Ad Spend ($)"].sum())
             total_profit_after_ads = float(df["Profit After Ads ($)"].sum())
             total_profit_after_ads_gbp = float(df["Profit After Ads (£)"].sum())
+            st.session_state["profit_after_spend"] = total_profit_after_ads_gbp
 
             overall_profit_percent = (
                 (total_profit - total_ad_spend) / total_sales * 100
