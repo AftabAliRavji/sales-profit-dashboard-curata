@@ -601,26 +601,23 @@ def main_app():
     # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
         st.subheader("📥 Inputs")
+
         # Show success message after rerun
         if st.session_state.get("import_success"):
             st.success("Import complete! 🎉")
             st.session_state["import_success"] = False
 
+        # ---------------------- INITIALISE DYNAMIC DAYS LIST ---------------------- #
+        if "manual_days" not in st.session_state:
+            st.session_state["manual_days"] = []
+
+        # ---------------------- GLOBAL INPUTS ---------------------- #
         col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 1])
 
         with col_a:
-            days = st.number_input(
-                "Number of days",
-                min_value=1,
-                max_value=31,
-                step=1,
-                key="days",
-            )
-
-        with col_b:
             start_date = st.date_input("Select start date", key="start_date")
 
-        with col_c:
+        with col_b:
             fx_rate = st.number_input(
                 "FX rate (USD → GBP)",
                 min_value=0.0,
@@ -628,7 +625,7 @@ def main_app():
                 key="fx_rate",
             )
 
-        with col_d:
+        with col_c:
             visitors_per_day = st.number_input(
                 "Visitors per day",
                 min_value=1,
@@ -636,73 +633,86 @@ def main_app():
                 key="visitors_per_day",
             )
 
-        default_ad_spend = st.number_input(
-            "Default ad spend ($) for all days",
-            min_value=0.0,
-            step=1.0,
-            key="default_ad_spend",
-        )
+        with col_d:
+            default_ad_spend = st.number_input(
+                "Default ad spend ($) for all days",
+                min_value=0.0,
+                step=1.0,
+                key="default_ad_spend",
+            )
 
         st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-        # Start looping through days
-        for day_index in range(int(days)):
-            init_day_state(day_index)
+        # ---------------------- ADD DAY BUTTON ---------------------- #
+        if st.button("➕ Add Day"):
+            st.session_state["manual_days"].append(
+                {
+                    "date": None,
+                    "ad_spend": st.session_state.get("default_ad_spend", 0.0),
+                    "orders": 1,
+                }
+            )
+            st.rerun()
 
-            day_date = start_date + timedelta(days=day_index)
-            day_label = day_date.strftime("%A — %d %b %Y")
+        # ---------------------- RENDER ALL DAYS ---------------------- #
+        daily_rows = []
 
-            ad_spend_key = f"ad_spend_day_{day_index}"
+        for day_index, day in enumerate(st.session_state["manual_days"]):
 
-            if ad_spend_key in st.session_state:
-                indicator = "(custom)"
-            else:
-                indicator = "(using default)"
+            # Initialise order state
+            orders_key = f"orders_day_{day_index}"
+            if orders_key not in st.session_state:
+                st.session_state[orders_key] = day.get("orders", 1)
 
-            default_for_day = st.session_state.get(
-                ad_spend_key,
-                st.session_state.get("default_ad_spend", 64.0),
+            # Day date
+            default_date = (
+                day["date"]
+                if day["date"] is not None
+                else start_date + timedelta(days=day_index)
             )
 
-            st.markdown(f"### Day {day_index + 1}: {day_label}")
+            day_date = st.date_input(
+                f"Date for Day {day_index + 1}",
+                value=default_date,
+                key=f"date_{day_index}",
+            )
+            st.session_state["manual_days"][day_index]["date"] = day_date
 
+            st.markdown(f"### Day {day_index + 1}: {day_date.strftime('%A — %d %b %Y')}")
+
+            # Ad spend
+            ad_spend_key = f"ad_spend_day_{day_index}"
             ad_spend = st.number_input(
-                f"Ad spend ($) for {day_label} {indicator}",
+                f"Ad spend ($) for Day {day_index + 1}",
                 min_value=0.0,
                 step=1.0,
-                value=default_for_day,
+                value=day.get("ad_spend", st.session_state.get("default_ad_spend", 0.0)),
                 key=ad_spend_key,
             )
+            st.session_state["manual_days"][day_index]["ad_spend"] = ad_spend
 
-            orders_key = f"orders_day_{day_index}"
+            # Orders section
             current_orders = st.session_state[orders_key]
 
-            expander_key = f"expander_open_day_{day_index}"
-            if expander_key not in st.session_state:
-                st.session_state[expander_key] = False
+            with st.expander(f"Orders for Day {day_index + 1} (Total: {current_orders})"):
 
-            with st.expander(
-                    f"Orders for {day_label} (Total: {current_orders})",
-                    expanded=st.session_state[expander_key],
-            ):
                 c1, c2, _ = st.columns([1, 1, 1])
 
                 with c1:
                     if st.button(f"➕ Add order (Day {day_index + 1})"):
                         st.session_state[orders_key] += 1
-                        st.session_state[expander_key] = True
                         st.rerun()
 
                 with c2:
                     if st.button(f"➖ Remove last order (Day {day_index + 1})"):
                         if st.session_state[orders_key] > 1:
                             st.session_state[orders_key] -= 1
-                            st.session_state[expander_key] = True
                             st.rerun()
 
                 day_sales = 0.0
                 day_profit = 0.0
 
+                # Render each order
                 for order_index in range(1, st.session_state[orders_key] + 1):
                     st.markdown(f"**Order {order_index}**")
                     col1, col2 = st.columns(2)
@@ -728,6 +738,7 @@ def main_app():
                     day_sales += sales_val
                     day_profit += profit_val
 
+            # Calculations
             profit_after_ads = day_profit - ad_spend
             profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
             percent_profit = (
@@ -735,7 +746,6 @@ def main_app():
             )
 
             visitors = st.session_state.get("visitors_per_day", 1)
-            orders_count = current_orders
 
             daily_rows.append(
                 {
@@ -746,11 +756,12 @@ def main_app():
                     "Profit After Ads ($)": round(profit_after_ads, 2),
                     "Profit After Ads (£)": round(profit_after_ads_gbp, 2),
                     "Profit %": round(percent_profit, 2),
-                    "Orders": orders_count,
+                    "Orders": current_orders,
                     "Visitors": visitors,
                 }
             )
 
+        # ---------------------- BUILD DATAFRAME ---------------------- #
         if daily_rows:
             df = pd.DataFrame(daily_rows)
         else:
@@ -773,7 +784,7 @@ def main_app():
         st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
-
+        
     # ---------------------- Tab 2: Bulk Import ---------------------- #
     with tabs[1]:
         st.subheader("📥 Bulk import daily data (JSON or CSV)")
