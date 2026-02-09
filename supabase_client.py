@@ -16,7 +16,7 @@ def get_supabase():
 
 
 # ============================================================
-#  PER-USER SESSION FUNCTIONS (kept for rollback safety)
+#  PER-USER SESSION FUNCTIONS (optional, kept for rollback/debug)
 # ============================================================
 
 def load_session_from_supabase(user_id: str):
@@ -63,24 +63,15 @@ def make_json_safe(data: dict):
     safe = {}
 
     for key, value in data.items():
-
-        # Skip Streamlit UploadedFile objects
         if hasattr(value, "read"):
             continue
-
-        # Skip pandas DataFrames
         if isinstance(value, pd.DataFrame):
             continue
-
-        # Skip any callable (functions, methods)
         if callable(value):
             continue
-
-        # Skip any object that is clearly not JSON-safe
         if isinstance(value, (bytes, bytearray)):
             continue
 
-        # Try to serialize — only keep if JSON-safe
         try:
             json.dumps(value)
             safe[key] = value
@@ -91,7 +82,7 @@ def make_json_safe(data: dict):
 
 
 # ============================================================
-#  GLOBAL SESSION FUNCTIONS
+#  GLOBAL SESSION FUNCTIONS (UI prefs + metadata)
 # ============================================================
 
 GLOBAL_KEY = "global"
@@ -110,7 +101,7 @@ def load_global_state():
         if resp.data:
             return {
                 "session_json": resp.data.get("session_json", {}),
-                "last_updated": resp.data.get("last_updated")
+                "last_updated": resp.data.get("last_updated"),
             }
         return None
     except Exception:
@@ -120,12 +111,11 @@ def load_global_state():
 def save_global_state(session_dict: dict):
     supabase = get_supabase()
 
-    # Filter JSON-safe values
     safe_dict = make_json_safe(session_dict)
 
     payload = {
         "id": GLOBAL_KEY,
-        "session_json": safe_dict
+        "session_json": safe_dict,
     }
 
     print("🔄 Saving global state to Supabase...")
@@ -152,7 +142,7 @@ def save_global_state(session_dict: dict):
         supabase.table("curata_global_audit").insert({
             "user_id": st.session_state.get("user_id", "unknown"),
             "action": "save_global_state",
-            "details": {"keys_saved": list(safe_dict.keys())}
+            "details": {"keys_saved": list(safe_dict.keys())},
         }).execute()
     except Exception as e:
         print("❌ Audit log failed:", e)
@@ -161,8 +151,8 @@ def save_global_state(session_dict: dict):
     try:
         backup_name = f"backup_{datetime.utcnow().isoformat()}.json"
         supabase.storage.from_("curata_backups").upload(
-        backup_name,
-        json.dumps(safe_dict).encode("utf-8")
+            backup_name,
+            json.dumps(safe_dict).encode("utf-8"),
         )
     except Exception as e:
         print("❌ Backup failed:", e)
