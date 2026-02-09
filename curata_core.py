@@ -784,7 +784,8 @@ def main_app():
         st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, use_container_width=True)
-        
+        st.write(st.session_state)
+
     # ---------------------- Tab 2: Bulk Import ---------------------- #
     with tabs[1]:
         st.subheader("📥 Bulk import daily data (JSON or CSV)")
