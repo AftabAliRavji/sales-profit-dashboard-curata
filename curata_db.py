@@ -95,17 +95,8 @@ def delete_daily_row(day_date: date):
 #  ORDER HELPERS
 # ============================================================
 
-def upsert_order_row(
-    day_id: int,
-    order_index: int,
-    sales_usd: float,
-    profit_usd: float,
-):
-    """
-    Insert or update a single order row.
-    """
+def upsert_order_row(day_id: int, order_index: int, sales_usd: float, profit_usd: float):
     supabase = get_supabase()
-
     payload = {
         "day_id": day_id,
         "order_index": order_index,
@@ -113,7 +104,14 @@ def upsert_order_row(
         "profit_usd": profit_usd,
     }
 
-    return supabase.table("curata_daily_orders").upsert(payload).execute()
+    # IMPORTANT: upsert on (day_id, order_index), not on primary key id
+    return (
+        supabase
+        .table("curata_daily_orders")
+        .upsert(payload, on_conflict=["day_id", "order_index"])
+        .execute()
+    )
+
 
 
 def load_orders_for_day(day_id: int) -> List[Dict]:
