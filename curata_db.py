@@ -104,13 +104,13 @@ def upsert_order_row(day_id: int, order_index: int, sales_usd: float, profit_usd
         "profit_usd": profit_usd,
     }
 
-    # IMPORTANT: upsert on (day_id, order_index), not on primary key id
     return (
         supabase
         .table("curata_daily_orders")
-        .upsert(payload, on_conflict=["day_id", "order_index"])
+        .upsert(payload, on_conflict="day_id,order_index")
         .execute()
     )
+
 
 
 
