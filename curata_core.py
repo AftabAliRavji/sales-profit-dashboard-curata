@@ -5,22 +5,16 @@ import json
 import requests
 import plotly.express as px
 
-
-from curata_db import (
-    upsert_daily_row,
-    upsert_order_row,
-    load_all_daily_rows,
-    load_orders_for_day,
-    delete_daily_row,
-    get_daily_row,
-    delete_single_order,
+from supabase_client import (
+    load_session_from_supabase,
+    save_session_to_supabase,
+    load_global_state,
+    save_global_state,
+    get_supabase,
 )
 
-from supabase_client import load_global_state, save_global_state
-
-
 # ============================================================
-#  Curata Dashboard — Core Logic (Supabase-native, UI Restored)
+#  Curata Dashboard — Core Logic (Restored UI + Supabase)
 # ============================================================
 
 # ---------------------- Auth state init ---------------------- #
@@ -31,7 +25,7 @@ def init_auth_state():
         st.session_state["user_id"] = None
 
 
-# --------------------- timestamp helpers -------------------- #
+# ---------------------- Timestamp helpers ---------------------- #
 def pretty_time(ts):
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "")).replace(tzinfo=timezone.utc)
@@ -68,28 +62,45 @@ def fetch_live_fx_rate():
     return None
 
 
-# ---------------------- UI Preference Keys ---------------------- #
-_UI_PREF_KEYS = [
-    "start_date",
-    "fx_rate",
-    "default_ad_spend",
-    "visitors_per_day",
-]
+# ---------------------- Session helpers ---------------------- #
+def get_app_state_keys():
+    keys = []
+    for k in st.session_state.keys():
+        if k in ["authenticated", "user_id", "session_restored"]:
+            continue
+        if (
+            k.startswith("orders_day_")
+            or k.startswith("day_")
+            or k.startswith("ad_spend_day_")
+            or k.startswith("expander_open_day_")
+            or k
+            in [
+                "days",
+                "start_date",
+                "fx_rate",
+                "default_ad_spend",
+                "visitors_per_day",
+                "daily_df",
+                "import_start_date",
+                "imported_days_count",
+                "imported_visitors",
+                "import_sync",
+                "uploaded_bulk_file",
+                "json_preview_raw",
+                "csv_preview",
+            ]
+        ):
+            keys.append(k)
+    return keys
 
 
 def export_session_state_dict():
-    """
-    Export ONLY UI-level preferences.
-    Daily data is stored in Supabase and not exported here.
-    """
     data = {}
-    for k in _UI_PREF_KEYS:
-        if k not in st.session_state:
-            continue
+    for k in get_app_state_keys():
         v = st.session_state.get(k)
-        if isinstance(v, pd.Timestamp):
+        if isinstance(v, (pd.Timestamp,)):
             data[k] = v.isoformat()
-        elif isinstance(v, date):
+        elif isinstance(v, (date,)):
             data[k] = v.isoformat()
         else:
             data[k] = v
@@ -97,14 +108,11 @@ def export_session_state_dict():
 
 
 def apply_session_dict(data: dict):
-    """
-    Apply UI preferences from Supabase or uploaded JSON.
-    """
     if not isinstance(data, dict):
         return
 
     for k, v in data.items():
-        if k not in _UI_PREF_KEYS:
+        if k in ["authenticated", "user_id", "session_restored"]:
             continue
 
         if k == "start_date":
@@ -116,8 +124,41 @@ def apply_session_dict(data: dict):
             st.session_state[k] = v
 
 
+def load_session_from_uploaded_json(uploaded_file):
+    try:
+        data = json.load(uploaded_file)
+    except Exception:
+        st.warning("Invalid JSON file.")
+        return
+
+    if not isinstance(data, dict):
+        st.warning("Uploaded JSON is not a valid session backup.")
+        return
+
+    try:
+        apply_session_dict(data)
+        st.success("Session restored from uploaded file. Rerunning…")
+        st.rerun()
+    except Exception as e:
+        st.warning(f"Could not apply uploaded session: {e}")
+
+
+def reset_session_state():
+    for k in get_app_state_keys():
+        st.session_state.pop(k, None)
+    for meta_key in ["session_restored"]:
+        st.session_state.pop(meta_key, None)
+    st.success("Session state reset. Rerunning…")
+    st.rerun()
+
+
 def init_default_state():
-    if "start_date" not in st.session_state:
+    if "days" not in st.session_state:
+        st.session_state["days"] = 7
+    if (
+        "start_date" not in st.session_state
+        and "import_start_date" not in st.session_state
+    ):
         st.session_state["start_date"] = date.today()
     if "fx_rate" not in st.session_state:
         live_rate = fetch_live_fx_rate()
@@ -128,44 +169,149 @@ def init_default_state():
         st.session_state["visitors_per_day"] = 1
 
 
+def init_day_state(day_index: int):
+    key_orders = f"orders_day_{day_index}"
+    if key_orders not in st.session_state:
+        st.session_state[key_orders] = 1
+
+
+# ---------------------- Bulk import helpers ---------------------- #
+def clear_day_state():
+    for k in list(st.session_state.keys()):
+        if (
+            k.startswith("orders_day_")
+            or k.startswith("day_")
+            or k.startswith("ad_spend_day_")
+            or k.startswith("expander_open_day_")
+        ):
+            st.session_state.pop(k, None)
+
+
+def populate_from_structured_data(day_data_list):
+    if not day_data_list:
+        st.warning("No valid data found in uploaded file.")
+        return
+
+    day_data_list = sorted(day_data_list, key=lambda d: d["date"])
+
+    st.session_state["import_start_date"] = day_data_list[0]["date"]
+    st.session_state["imported_days_count"] = len(day_data_list)
+
+    imported_days = []
+    imported_visitors = []
+
+    clear_day_state()
+
+    for idx, day_info in enumerate(day_data_list):
+        day_date = day_info["date"]
+        ad_spend = float(day_info.get("ad_spend", 0.0) or 0.0)
+        visitors = int(day_info.get("visitors", 1) or 1)
+        orders = day_info.get("orders", [])
+
+        imported_days.append(day_date)
+        imported_visitors.append(visitors)
+
+        st.session_state[f"ad_spend_day_{idx}"] = ad_spend
+        st.session_state[f"orders_day_{idx}"] = max(1, len(orders))
+
+        num_orders = st.session_state[f"orders_day_{idx}"]
+        for order_index in range(1, num_orders + 1):
+            sales_key = f"day_{idx}_order_{order_index}_sales"
+            profit_key = f"day_{idx}_order_{order_index}_profit"
+
+            if order_index <= len(orders):
+                o = orders[order_index - 1]
+                st.session_state[sales_key] = float(o.get("sales", 0.0) or 0.0)
+                st.session_state[profit_key] = float(o.get("profit", 0.0) or 0.0)
+            else:
+                st.session_state[sales_key] = 0.0
+                st.session_state[profit_key] = 0.0
+
+    st.session_state["imported_days"] = imported_days
+    st.session_state["imported_visitors"] = imported_visitors
+    st.session_state["import_sync"] = True
+
+    st.success("Bulk data imported successfully.")
 # ============================================================
-#  Main App — Header, Sidebar, Tabs
+#  Main app — header, sidebar, tabs, and Tab 1 (Inputs)
 # ============================================================
 
 def main_app():
-    st.write("Logged in as:", st.session_state.get("user_id"))
-
     init_default_state()
 
-    # Load global UI prefs once after login
-    if st.session_state.get("authenticated") and "session_restored" not in st.session_state:
+    # Load GLOBAL state on first run after login
+    if (
+        st.session_state.get("authenticated")
+        and "session_restored" not in st.session_state
+    ):
         loaded = load_global_state()
         if loaded:
             apply_session_dict(loaded["session_json"])
             st.session_state["last_updated"] = loaded["last_updated"]
         st.session_state["session_restored"] = True
 
-    # ---------------------- Header (Light Theme) ---------------------- #
+    # ---------------------- Global CSS ---------------------- #
     st.markdown(
         """
-        <div style="
-            padding: 0.75rem 1rem 0.25rem 1rem;
-            background-color: #ffffff;
-            border-radius: 6px;
-        ">
-            <div style="
-                font-size: 1.8rem;
-                font-weight: 900;
-                color: #000000;
-                line-height: 1.2;
-            ">
-                Curata Daily Performance Dashboard
-            </div>
-            <div style="
-                font-size: 1.05rem;
-                font-weight: 600;
-                color: #333333;
-            ">
+        <style>
+        .curata-header {
+            padding: 0.75rem 1rem 0.25rem 1rem !important;
+            background-color: #ffffff !important;
+            border-radius: 6px !important;
+        }
+
+        .curata-title {
+            font-size: 1.8rem !important;
+            font-weight: 900 !important;
+            color: #000000 !important;
+            line-height: 1.2 !important;
+        }
+
+        .curata-tagline {
+            font-size: 1.05rem !important;
+            font-weight: 600 !important;
+            color: #333333 !important;
+        }
+
+        .curata-divider {
+            border-bottom: 2px solid #d1d5db !important;
+            margin: 1rem 0 1.25rem 0 !important;
+        }
+
+        .stFileUploader label {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin-bottom: 0.4rem !important;
+            box-shadow: none !important;
+            cursor: default !important;
+            font-size: 1rem !important;
+            font-weight: 600 !important;
+            color: #374151 !important;
+        }
+
+        .stFileUploader span button {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: inline-block !important;
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            padding: 0.4rem 1rem !important;
+            border-radius: 6px !important;
+            border: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ---------------------- Header ---------------------- #
+    st.markdown(
+        """
+        <div class="curata-header">
+            <div class="curata-title">Curata Daily Performance Dashboard</div>
+            <div class="curata-tagline">
                 Track daily sales, profit, ad spend and margins with quick export and restore options.
             </div>
         </div>
@@ -173,10 +319,12 @@ def main_app():
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0 1.25rem 0;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-    # ---------------------- Sidebar (Collapsible) ---------------------- #
-    st.sidebar.markdown(f"**Logged in as:** {st.session_state.get('user_id', 'Unknown')}")
+    # ---------------------- Sidebar ---------------------- #
+    st.sidebar.markdown(
+        f"**Logged in as:** {st.session_state.get('user_id', 'Unknown')}"
+    )
 
     if "last_updated" in st.session_state and st.session_state["last_updated"]:
         pretty = pretty_time(st.session_state["last_updated"])
@@ -188,7 +336,7 @@ def main_app():
             st.session_state["fx_rate"] = new_rate
             st.sidebar.success(f"Updated FX rate: {new_rate:.4f}")
         else:
-            st.sidebar.warning("Could not fetch live FX rate.")
+            st.sidebar.warning("Could not fetch live FX rate. Keeping existing value.")
 
     fx_rate_display = st.session_state.get("fx_rate", 0.0)
 
@@ -232,63 +380,60 @@ def main_app():
             "Session JSON",
             "Summary Charts",
             "Admin",
-            "Migration",
         ]
     )
 
-    # ---------------------- Visitors Normalization ---------------------- #
-    raw_visitors = st.session_state.get("visitors_per_day", 1)
+    daily_rows = []
 
+    # ---------------------- IMPORT SYNC ---------------------- #
+    if st.session_state.get("import_sync"):
+        if (
+            "import_start_date" in st.session_state
+            and "imported_days_count" in st.session_state
+            and "imported_visitors" in st.session_state
+        ):
+            st.session_state["start_date"] = st.session_state["import_start_date"]
+            st.session_state["days"] = st.session_state["imported_days_count"]
+
+            imported_visitors = st.session_state["imported_visitors"]
+            if isinstance(imported_visitors, list) and len(imported_visitors) > 0:
+                st.session_state["visitors_per_day"] = imported_visitors[0]
+            else:
+                st.session_state["visitors_per_day"] = 1
+
+            st.session_state["import_sync"] = False
+            st.rerun()
+        else:
+            st.session_state["import_sync"] = False
+
+    # ---------------------- VISITORS NORMALISER ---------------------- #
+    raw_visitors = st.session_state.get("visitors_per_day", 1)
     if isinstance(raw_visitors, list):
         st.session_state["visitors_per_day"] = raw_visitors[0] if raw_visitors else 1
     elif not isinstance(raw_visitors, (int, float)):
         st.session_state["visitors_per_day"] = 1
-    # ============================================================
-    #  TAB 1 — INPUTS (Supabase-native)
-    # ============================================================
+
+    # ---------------------- Tab 1: Inputs ---------------------- #
     with tabs[0]:
         st.subheader("📥 Inputs")
 
-        # Load all daily rows from Supabase
-        daily_rows_db = load_all_daily_rows()
-
-        # If no data exists yet → create first day
-        if not daily_rows_db:
-            st.info("No daily data found. Add your first day below.")
-
-            start_date = st.date_input("Select start date", key="start_date")
-            fx_rate = st.number_input("FX rate (USD → GBP)", min_value=0.0, step=0.0001, key="fx_rate")
-            visitors_per_day = st.number_input("Visitors per day", min_value=1, step=1, key="visitors_per_day")
-            default_ad_spend = st.number_input("Default ad spend ($)", min_value=0.0, step=1.0, key="default_ad_spend")
-
-            if st.button("Create first day"):
-                upsert_daily_row(start_date, default_ad_spend, visitors_per_day, 1, 0, 0, 0, 0, 0)
-                new_row = get_daily_row(start_date)
-                upsert_order_row(new_row["id"], 1, 0, 0)
-                st.rerun()
-
-            st.stop()
-
-        # Existing data found → render editable UI
-        start_date = min([pd.to_datetime(r["date"]).date() for r in daily_rows_db])
-        st.session_state["start_date"] = start_date
-        st.session_state["days"] = len(daily_rows_db)
+        if st.session_state.get("import_success"):
+            st.success("Import complete! 🎉")
+            st.session_state["import_success"] = False
 
         col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 1])
 
         with col_a:
-            st.number_input(
+            days = st.number_input(
                 "Number of days",
                 min_value=1,
                 max_value=31,
                 step=1,
-                value=len(daily_rows_db),
                 key="days",
-                disabled=True,
             )
 
         with col_b:
-            st.date_input("Select start date", value=start_date, key="start_date")
+            start_date = st.date_input("Select start date", key="start_date")
 
         with col_c:
             fx_rate = st.number_input(
@@ -313,99 +458,100 @@ def main_app():
             key="default_ad_spend",
         )
 
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-        daily_rows_display = []
+        for day_index in range(int(days)):
+            init_day_state(day_index)
 
-        # Loop through each day from Supabase
-        for day_index, daily_row in enumerate(daily_rows_db):
-            day_date = pd.to_datetime(daily_row["date"]).date()
+            day_date = start_date + timedelta(days=day_index)
             day_label = day_date.strftime("%A — %d %b %Y")
-            day_id = daily_row["id"]
+
+            ad_spend_key = f"ad_spend_day_{day_index}"
+
+            if ad_spend_key in st.session_state:
+                indicator = "(custom)"
+            else:
+                indicator = "(using default)"
+
+            default_for_day = st.session_state.get(
+                ad_spend_key,
+                st.session_state.get("default_ad_spend", 64.0),
+            )
 
             st.markdown(f"### Day {day_index + 1}: {day_label}")
 
-            # Editable ad spend
             ad_spend = st.number_input(
-                f"Ad spend ($) for {day_label}",
+                f"Ad spend ($) for {day_label} {indicator}",
                 min_value=0.0,
                 step=1.0,
-                value=float(daily_row["ad_spend_usd"]),
-                key=f"ad_spend_{day_index}",
+                value=default_for_day,
+                key=ad_spend_key,
             )
 
-            # Editable order count
-            orders_count = st.number_input(
-                f"Number of orders for {day_label}",
-                min_value=1,
-                step=1,
-                value=int(daily_row["orders"]),
-                key=f"orders_{day_index}",
-            )
+            orders_key = f"orders_day_{day_index}"
+            current_orders = st.session_state[orders_key]
 
-            # Load existing orders
-            order_rows = load_orders_for_day(day_id)
+            expander_key = f"expander_open_day_{day_index}"
+            if expander_key not in st.session_state:
+                st.session_state[expander_key] = False
 
-            # Sync order count with DB
-            if len(order_rows) < orders_count:
-                for idx in range(len(order_rows) + 1, orders_count + 1):
-                    upsert_order_row(day_id, idx, 0, 0)
-            elif len(order_rows) > orders_count:
-                for idx in range(orders_count + 1, len(order_rows) + 1):
-                    delete_single_order(day_id, idx)
+            with st.expander(
+                f"Orders for {day_label} (Total: {current_orders})",
+                expanded=st.session_state[expander_key],
+            ):
+                c1, c2, _ = st.columns([1, 1, 1])
 
-            order_rows = load_orders_for_day(day_id)
+                with c1:
+                    if st.button(f"➕ Add order (Day {day_index + 1})"):
+                        st.session_state[orders_key] += 1
+                        st.session_state[expander_key] = True
+                        st.rerun()
 
-            # Orders expander
-            with st.expander(f"Orders for {day_label} (Total: {orders_count})", expanded=False):
-                day_sales = 0
-                day_profit = 0
+                with c2:
+                    if st.button(f"➖ Remove last order (Day {day_index + 1})"):
+                        if st.session_state[orders_key] > 1:
+                            st.session_state[orders_key] -= 1
+                            st.session_state[expander_key] = True
+                            st.rerun()
 
-                for order in order_rows:
-                    idx = order["order_index"]
+                day_sales = 0.0
+                day_profit = 0.0
 
+                for order_index in range(1, st.session_state[orders_key] + 1):
+                    st.markdown(f"**Order {order_index}**")
                     col1, col2 = st.columns(2)
 
-                    sales_val = col1.number_input(
-                        f"Sales ($) — Order {idx}",
-                        min_value=0.0,
-                        step=1.0,
-                        value=float(order["sales_usd"]),
-                        key=f"sales_{day_index}_{idx}",
-                    )
+                    sales_key = f"day_{day_index}_order_{order_index}_sales"
+                    profit_key = f"day_{day_index}_order_{order_index}_profit"
 
-                    profit_val = col2.number_input(
-                        f"Profit ($) — Order {idx}",
-                        min_value=0.0,
-                        step=1.0,
-                        value=float(order["profit_usd"]),
-                        key=f"profit_{day_index}_{idx}",
-                    )
-
-                    upsert_order_row(day_id, idx, sales_val, profit_val)
+                    with col1:
+                        sales_val = st.number_input(
+                            f"Sales ($) — Order {order_index}",
+                            min_value=0.0,
+                            step=1.0,
+                            key=sales_key,
+                        )
+                    with col2:
+                        profit_val = st.number_input(
+                            f"Profit ($) — Order {order_index}",
+                            min_value=0.0,
+                            step=1.0,
+                            key=profit_key,
+                        )
 
                     day_sales += sales_val
                     day_profit += profit_val
 
-            # Recalculate daily totals
             profit_after_ads = day_profit - ad_spend
-            profit_after_ads_gbp = profit_after_ads * fx_rate
-            percent_profit = (profit_after_ads / day_sales * 100) if day_sales > 0 else 0
-
-            # Update daily row in Supabase
-            upsert_daily_row(
-                day_date,
-                ad_spend,
-                visitors_per_day,
-                orders_count,
-                day_sales,
-                day_profit,
-                profit_after_ads,
-                profit_after_ads_gbp,
-                percent_profit,
+            profit_after_ads_gbp = profit_after_ads * (fx_rate if fx_rate else 0.0)
+            percent_profit = (
+                (day_profit - ad_spend) / day_sales * 100 if day_sales > 0 else 0.0
             )
 
-            daily_rows_display.append(
+            visitors = st.session_state.get("visitors_per_day", 1)
+            orders_count = current_orders
+
+            daily_rows.append(
                 {
                     "Date": day_date,
                     "Sales ($)": round(day_sales, 2),
@@ -415,234 +561,306 @@ def main_app():
                     "Profit After Ads (£)": round(profit_after_ads_gbp, 2),
                     "Profit %": round(percent_profit, 2),
                     "Orders": orders_count,
-                    "Visitors": visitors_per_day,
+                    "Visitors": visitors,
                 }
             )
 
-        # Add Day button
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
-
-        if st.button("➕ Add Day"):
-            last_date = max([pd.to_datetime(r["date"]).date() for r in daily_rows_db])
-            new_date = last_date + timedelta(days=1)
-
-            upsert_daily_row(
-                new_date,
-                default_ad_spend,
-                visitors_per_day,
-                1,
-                0,
-                0,
-                0,
-                0,
-                0,
+        if daily_rows:
+            df = pd.DataFrame(daily_rows)
+        else:
+            df = pd.DataFrame(
+                columns=[
+                    "Date",
+                    "Sales ($)",
+                    "Profit ($)",
+                    "Ad Spend ($)",
+                    "Profit After Ads ($)",
+                    "Profit After Ads (£)",
+                    "Profit %",
+                    "Orders",
+                    "Visitors",
+                ]
             )
 
-            new_row = get_daily_row(new_date)
-            upsert_order_row(new_row["id"], 1, 0, 0)
-
-            st.rerun()
-
-        # Display table
-        df = pd.DataFrame(daily_rows_display)
         st.session_state["daily_df"] = df
 
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
         st.subheader("📅 Daily overview (table)")
-        st.dataframe(df, use_container_width=True)
-
-    # ============================================================
-    #  TAB 2 — BULK IMPORT
-    # ============================================================
+        st.dataframe(df, width="stretch")
+    # ---------------------- Tab 2: Bulk Import ---------------------- #
     with tabs[1]:
         st.subheader("📥 Bulk import daily data (JSON or CSV)")
 
+        # --- Styling fixes (restored from old UI) --- #
         st.markdown(
             """
-            **JSON example:**
-
-            {
-              "2026-01-08": {
-                "ad_spend": 64,
-                "visitors": 120,
-                "orders": [...]
-              }
-            }
-
-            **CSV example:**
-
-            date,order_index,sales,profit,ad_spend,visitors  
-            2026-01-08,1,87.48,26.98,64,120
-            """
+        <style>
+        .stFileUploader label { background: none !important; border: none !important; padding: 0 !important; margin-bottom: 0.4rem !important; box-shadow: none !important; cursor: default !important; font-size: 1rem !important; font-weight: 700 !important; color: #ffffff !important; }
+        .stFileUploader label div[data-testid="stFileUploaderDropzone"] {
+            border: 2px dashed #9ca3af !important;
+            padding: 1.2rem !important;
+            background-color: #f9fafb !important;
+        }
+        .stFileUploader label div[data-testid="stFileUploaderDropzone"]::before {
+            opacity: 1 !important;
+        }
+        .stFileUploader span button {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: inline-block !important;
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            padding: 0.35rem 0.9rem !important;
+            border-radius: 6px !important;
+            border: none !important;
+        }
+        div[data-testid="stFileUploader"] > div > div > span {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            font-size: 1rem !important;
+        }
+        div[data-testid="stFileUploader"] > div > div:nth-of-type(2) {
+            display: none !important;
+        }
+        div[data-testid="stFileUploaderFileName"] {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            font-size: 1rem !important;
+        }
+        div.stFileUploaderFileData small {
+            color: #ffffff !important;
+            font-weight: 500 !important;
+            font-size: 0.9rem !important;
+        }
+        </style>
+        """,
+            unsafe_allow_html=True,
         )
 
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+**JSON example:**
+
+{
+  "2026-01-08": {
+    "ad_spend": 64,
+    "visitors": 120,
+    "orders": [...]
+  }
+}
+
+**CSV example:**
+
+date,order_index,sales,profit,ad_spend,visitors  
+2026-01-08,1,87.48,26.98,64,120
+"""
+        )
+
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
         uploaded_bulk = st.file_uploader(
             "Upload bulk data file", type=["json", "csv"], key="bulk_import_uploader"
         )
 
-        if uploaded_bulk:
-            file_name = uploaded_bulk.name.lower()
+        if uploaded_bulk is not None:
+            st.session_state["uploaded_bulk_file"] = uploaded_bulk
+        else:
+            st.session_state["uploaded_bulk_file"] = None
+
+        file_obj = st.session_state.get("uploaded_bulk_file", None)
+
+        # Reset preview when file cleared
+        if file_obj is None:
+            st.session_state["json_preview_raw"] = None
+            st.session_state["json_preview_triggered"] = False
+            st.session_state["parsed_structured_data"] = None
+            st.session_state["csv_preview"] = None
+
+        # Show file name + size
+        if file_obj:
+            file_name = file_obj.name.lower()
+            file_size_kb = round(len(file_obj.getvalue()) / 1024, 1)
+
+            st.markdown(
+                f"""
+            <div style="margin-top: 0.4rem; font-weight: 700; color: #ffffff;">
+                {file_obj.name} &nbsp; <span style="font-weight: 500;">{file_size_kb}KB</span>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
 
             # ---------------------- JSON IMPORT ---------------------- #
             if file_name.endswith(".json"):
-                try:
-                    raw = json.loads(uploaded_bulk.getvalue().decode("utf-8"))
-                except Exception as e:
-                    st.error(f"Invalid JSON: {e}")
-                    st.stop()
 
-                st.markdown("### 🔍 Preview JSON")
-                st.json(raw)
+                if st.button("Preview JSON data"):
+                    try:
+                        raw_bytes = file_obj.getvalue()
+                        data = json.loads(raw_bytes.decode("utf-8"))
 
-                if st.button("📥 Import JSON into Supabase"):
-                    fx_rate = st.session_state.get("fx_rate", 0.0)
+                        if not isinstance(data, dict):
+                            st.error("JSON must be an object with dates as keys.")
+                        else:
+                            st.session_state["json_preview_raw"] = data
+                            st.session_state["json_preview_triggered"] = True
+                            st.success("Preview generated successfully.")
+                    except Exception as e:
+                        st.error(f"❌ Could not parse JSON: {e}")
 
-                    for date_key, day_info in raw.items():
-                        try:
-                            day_date = pd.to_datetime(date_key).date()
-                        except:
+                if st.session_state.get("json_preview_triggered") and st.session_state.get("json_preview_raw"):
+                    st.markdown("### 🔍 Preview of parsed JSON")
+                    raw_data = st.session_state["json_preview_raw"]
+
+                    for date_key, day_data in raw_data.items():
+                        with st.expander(f"{date_key} — {len(day_data.get('orders', []))} orders"):
+                            st.json(day_data)
+
+                    st.markdown("### 🧪 Validation report")
+                    validation_messages = []
+
+                    for date_key, day_data in raw_data.items():
+                        if not isinstance(day_data, dict):
+                            validation_messages.append(f"❌ {date_key} is not a valid object.")
                             continue
 
-                        ad_spend = float(day_info.get("ad_spend", 0.0))
-                        visitors = int(day_info.get("visitors", 1))
-                        orders_raw = day_info.get("orders", [])
+                        required_fields = ["ad_spend", "visitors", "orders"]
+                        missing = [f for f in required_fields if f not in day_data]
 
-                        orders = []
-                        for o in orders_raw:
-                            if isinstance(o, dict):
-                                orders.append({
-                                    "sales": float(o.get("sales", 0.0)),
-                                    "profit": float(o.get("profit", 0.0)),
-                                })
+                        if missing:
+                            validation_messages.append(f"⚠️ {date_key} missing fields: {', '.join(missing)}")
 
-                        delete_daily_row(day_date)
+                        if "orders" in day_data and not isinstance(day_data["orders"], list):
+                            validation_messages.append(f"❌ {date_key} orders must be a list.")
 
-                        total_sales = sum(o["sales"] for o in orders)
-                        total_profit = sum(o["profit"] for o in orders)
-                        profit_after_ads = total_profit - ad_spend
-                        profit_after_ads_gbp = profit_after_ads * fx_rate
-                        percent_profit = (profit_after_ads / total_sales * 100) if total_sales > 0 else 0
+                    if validation_messages:
+                        for msg in validation_messages:
+                            st.warning(msg)
+                    else:
+                        st.success("All dates validated successfully.")
 
-                        upsert_daily_row(
-                            day_date,
-                            ad_spend,
-                            visitors,
-                            len(orders),
-                            total_sales,
-                            total_profit,
-                            profit_after_ads,
-                            profit_after_ads_gbp,
-                            percent_profit,
-                        )
+                if st.button("📥 Import JSON data"):
+                    raw_data = st.session_state.get("json_preview_raw", None)
 
-                        daily_row = get_daily_row(day_date)
-                        day_id = daily_row["id"]
+                    if not raw_data:
+                        st.error("❌ Please generate a preview before importing.")
+                    else:
+                        day_data_list = []
 
-                        for idx, o in enumerate(orders, start=1):
-                            upsert_order_row(day_id, idx, o["sales"], o["profit"])
+                        for date_key, day_info in raw_data.items():
+                            try:
+                                day_date = pd.to_datetime(date_key).date()
+                            except Exception:
+                                continue
 
-                    st.success("Bulk JSON import complete.")
-                    st.rerun()
+                            orders = day_info.get("orders", [])
+                            orders_clean = []
+                            for o in orders:
+                                if isinstance(o, dict):
+                                    orders_clean.append(
+                                        {
+                                            "sales": float(o.get("sales", 0.0) or 0.0),
+                                            "profit": float(o.get("profit", 0.0) or 0.0),
+                                        }
+                                    )
+
+                            day_data_list.append(
+                                {
+                                    "date": day_date,
+                                    "ad_spend": float(day_info.get("ad_spend", 0.0)),
+                                    "visitors": int(day_info.get("visitors", 1)),
+                                    "orders": orders_clean,
+                                }
+                            )
+
+                        populate_from_structured_data(day_data_list)
+                        st.session_state["import_success"] = True
+                        st.rerun()
 
             # ---------------------- CSV IMPORT ---------------------- #
             elif file_name.endswith(".csv"):
-                try:
-                    df_csv = pd.read_csv(uploaded_bulk)
-                except Exception as e:
-                    st.error(f"Invalid CSV: {e}")
-                    st.stop()
 
-                st.markdown("### 🔍 Preview CSV")
-                st.dataframe(df_csv, use_container_width=True)
+                if st.button("Preview CSV data"):
+                    try:
+                        raw_bytes = file_obj.getvalue()
+                        df_test = pd.read_csv(pd.io.common.BytesIO(raw_bytes))
+                        st.session_state["csv_preview"] = df_test
+                        st.success("Preview generated successfully.")
+                    except Exception as e:
+                        st.error(f"❌ Could not read CSV: {e}")
 
-                if st.button("📥 Import CSV into Supabase"):
-                    fx_rate = st.session_state.get("fx_rate", 0.0)
+                if st.session_state.get("csv_preview") is not None:
+                    st.markdown("### 🔍 Preview of CSV")
+                    st.dataframe(st.session_state["csv_preview"], width="stretch")
 
-                    df_csv["date"] = pd.to_datetime(df_csv["date"]).dt.date
+                    st.markdown("### 🧪 Validation report")
+                    required_cols = {"date", "order_index", "sales", "profit", "ad_spend", "visitors"}
+                    missing_cols = required_cols - set(st.session_state["csv_preview"].columns)
 
-                    for day_date, group in df_csv.groupby("date"):
-                        first = group.iloc[0]
-                        ad_spend = float(first.get("ad_spend", 0.0))
-                        visitors = int(first.get("visitors", 1))
+                    if missing_cols:
+                        st.error(f"❌ Missing columns: {', '.join(missing_cols)}")
+                    else:
+                        st.success("All required columns present.")
 
-                        orders = []
-                        for _, row in group.sort_values("order_index").iterrows():
-                            orders.append({
-                                "sales": float(row["sales"]),
-                                "profit": float(row["profit"]),
-                            })
+                if st.button("📥 Import CSV data"):
+                    df_test = st.session_state.get("csv_preview", None)
 
-                        delete_daily_row(day_date)
+                    if df_test is None:
+                        st.error("❌ Please generate a preview before importing.")
+                    else:
+                        parse_csv_bulk(pd.io.common.BytesIO(file_obj.getvalue()))
+                        st.session_state["import_success"] = True
+                        st.rerun()
 
-                        total_sales = sum(o["sales"] for o in orders)
-                        total_profit = sum(o["profit"] for o in orders)
-                        profit_after_ads = total_profit - ad_spend
-                        profit_after_ads_gbp = profit_after_ads * fx_rate
-                        percent_profit = (profit_after_ads / total_sales * 100) if total_sales > 0 else 0
+            else:
+                st.warning("⚠️ Unsupported file type. Please upload a .json or .csv file.")
 
-                        upsert_daily_row(
-                            day_date,
-                            ad_spend,
-                            visitors,
-                            len(orders),
-                            total_sales,
-                            total_profit,
-                            profit_after_ads,
-                            profit_after_ads_gbp,
-                            percent_profit,
-                        )
-
-                        daily_row = get_daily_row(day_date)
-                        day_id = daily_row["id"]
-
-                        for idx, o in enumerate(orders, start=1):
-                            upsert_order_row(day_id, idx, o["sales"], o["profit"])
-
-                    st.success("Bulk CSV import complete.")
-                    st.rerun()
-
-    # ============================================================
-    #  TAB 3 — KPIs
-    # ============================================================
+    # ---------------------- Tab 3: KPIs ---------------------- #
     with tabs[2]:
         st.subheader("📊 KPIs")
 
         df = st.session_state.get("daily_df", pd.DataFrame())
 
         if df.empty:
-            st.info("No data yet.")
+            st.info("No data yet. Fill in Inputs or Bulk Import.")
         else:
             total_sales = float(df["Sales ($)"].sum())
             total_profit = float(df["Profit ($)"].sum())
             total_ad_spend = float(df["Ad Spend ($)"].sum())
             total_profit_after_ads = float(df["Profit After Ads ($)"].sum())
             total_profit_after_ads_gbp = float(df["Profit After Ads (£)"].sum())
+            st.session_state["profit_after_spend"] = total_profit_after_ads_gbp
 
             overall_profit_percent = (
                 (total_profit - total_ad_spend) / total_sales * 100
-                if total_sales > 0 else 0.0
+                if total_sales > 0
+                else 0.0
             )
 
             roas = total_sales / total_ad_spend if total_ad_spend > 0 else 0.0
 
             c1, c2, c3, c4, c5 = st.columns(5)
 
-            c1.metric("Total sales ($)", f"${total_sales:,.2f}")
-            c2.metric("Total profit ($)", f"${total_profit:,.2f}")
-            c3.metric("Total ad spend ($)", f"${total_ad_spend:,.2f}")
-            c4.metric("Profit after ads ($)", f"${total_profit_after_ads:,.2f}")
-            c5.metric("Profit after ads (£)", f"£{total_profit_after_ads_gbp:,.2f}")
+            with c1:
+                st.metric("Total sales ($)", f"${total_sales:,.2f}")
+            with c2:
+                st.metric("Total profit ($)", f"${total_profit:,.2f}")
+            with c3:
+                st.metric("Total ad spend ($)", f"${total_ad_spend:,.2f}")
+            with c4:
+                st.metric("Profit after ads ($)", f"${total_profit_after_ads:,.2f}")
+            with c5:
+                st.metric("Profit after ads (£)", f"£{total_profit_after_ads_gbp:,.2f}")
 
-            st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
             c6, c7 = st.columns(2)
-            c6.metric("Overall profit %", f"{overall_profit_percent:,.2f}%")
-            c7.metric("ROAS", f"{roas:,.2f}x")
+            with c6:
+                st.metric("Overall profit %", f"{overall_profit_percent:,.2f}%")
+            with c7:
+                st.metric("ROAS", f"{roas:,.2f}x")
 
-    # ============================================================
-    #  TAB 4 — SUMMARIES
-    # ============================================================
+    # ---------------------- Tab 4: Summaries ---------------------- #
     with tabs[3]:
         st.subheader("📈 Summaries (weekly, monthly, yearly)")
 
@@ -658,274 +876,529 @@ def main_app():
             st.markdown("### Weekly summary")
             weekly = (
                 df_summary.groupby(
-                    df_summary["Date"].dt.to_period("W").apply(lambda r: r.start_time.date())
+                    df_summary["Date"]
+                    .dt.to_period("W")
+                    .apply(lambda r: r.start_time.date())
                 )
-                .agg({
-                    "Sales ($)": "sum",
-                    "Profit ($)": "sum",
-                    "Ad Spend ($)": "sum",
-                    "Profit After Ads ($)": "sum",
-                    "Profit After Ads (£)": "sum",
-                    "Orders": "sum",
-                    "Visitors": "sum",
-                })
+                .agg(
+                    {
+                        "Sales ($)": "sum",
+                        "Profit ($)": "sum",
+                        "Ad Spend ($)": "sum",
+                        "Profit After Ads ($)": "sum",
+                        "Profit After Ads (£)": "sum",
+                        "Orders": "sum",
+                        "Visitors": "sum",
+                    }
+                )
                 .reset_index()
                 .rename(columns={"Date": "Week Start"})
             )
-            st.dataframe(weekly, use_container_width=True)
+            st.dataframe(weekly, width="stretch")
 
-            st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
             # Monthly summary
             st.markdown("### Monthly summary")
             monthly = (
                 df_summary.groupby(df_summary["Date"].dt.to_period("M"))
-                .agg({
-                    "Sales ($)": "sum",
-                    "Profit ($)": "sum",
-                    "Ad Spend ($)": "sum",
-                    "Profit After Ads ($)": "sum",
-                    "Profit After Ads (£)": "sum",
-                    "Orders": "sum",
-                    "Visitors": "sum",
-                })
+                .agg(
+                    {
+                        "Sales ($)": "sum",
+                        "Profit ($)": "sum",
+                        "Ad Spend ($)": "sum",
+                        "Profit After Ads ($)": "sum",
+                        "Profit After Ads (£)": "sum",
+                        "Orders": "sum",
+                        "Visitors": "sum",
+                    }
+                )
                 .reset_index()
             )
             monthly["Date"] = monthly["Date"].astype(str)
-            st.dataframe(monthly, use_container_width=True)
+            st.dataframe(monthly, width="stretch")
 
-            st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
             # Yearly summary
             st.markdown("### Yearly summary")
             yearly = (
                 df_summary.groupby(df_summary["Date"].dt.year)
-                .agg({
-                    "Sales ($)": "sum",
-                    "Profit ($)": "sum",
-                    "Ad Spend ($)": "sum",
-                    "Profit After Ads ($)": "sum",
-                    "Profit After Ads (£)": "sum",
-                    "Orders": "sum",
-                    "Visitors": "sum",
-                })
+                .agg(
+                    {
+                        "Sales ($)": "sum",
+                        "Profit ($)": "sum",
+                        "Ad Spend ($)": "sum",
+                        "Profit After Ads ($)": "sum",
+                        "Profit After Ads (£)": "sum",
+                        "Orders": "sum",
+                        "Visitors": "sum",
+                    }
+                )
                 .reset_index()
                 .rename(columns={"Date": "Year"})
             )
-            st.dataframe(yearly, use_container_width=True)
-    # ============================================================
-    #  TAB 5 — EXPORT
-    # ============================================================
+            st.dataframe(yearly, width="stretch")
+    # ---------------------- Tab 5: Export ---------------------- #
     with tabs[4]:
         st.subheader("📤 Export data")
 
         df = st.session_state.get("daily_df", pd.DataFrame())
 
         if df.empty:
-            st.info("No data to export.")
+            st.info("No data available to export.")
         else:
-            # CSV Export
+            st.markdown("Download your daily performance data as CSV.")
+
             csv_data = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "⬇️ Download CSV (daily overview)",
-                csv_data,
-                "curata_daily_overview.csv",
-                "text/csv",
-            )
-
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
-
-        # Full Supabase backup (daily_data + orders)
-        if st.button("📦 Export full Supabase backup (JSON)"):
-            all_days = load_all_daily_rows()
-            export_blob = {}
-
-            for row in all_days:
-                day_date = pd.to_datetime(row["date"]).date().isoformat()
-                orders = load_orders_for_day(row["id"])
-
-                export_blob[day_date] = {
-                    "ad_spend": float(row["ad_spend_usd"]),
-                    "visitors": int(row["visitors"]),
-                    "orders": [
-                        {"sales": float(o["sales_usd"]), "profit": float(o["profit_usd"])}
-                        for o in orders
-                    ],
-                }
 
             st.download_button(
-                "⬇️ Download Supabase backup JSON",
-                json.dumps(export_blob, indent=2).encode("utf-8"),
-                "curata_supabase_backup.json",
-                "application/json",
+                label="Download CSV",
+                data=csv_data,
+                file_name="curata_daily_performance.csv",
+                mime="text/csv",
+                type="primary",
             )
 
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-        # Export UI preferences only
-        if st.button("⬇️ Export UI preferences (JSON)"):
-            prefs = export_session_state_dict()
-            st.download_button(
-                "Download UI preferences JSON",
-                json.dumps(prefs, indent=2).encode("utf-8"),
-                "curata_ui_prefs.json",
-                "application/json",
-            )
+        st.markdown("### Export session state (JSON)")
 
-    # ============================================================
-    #  TAB 6 — SESSION JSON (UI prefs only)
-    # ============================================================
+        session_json = json.dumps(export_session_state_dict(), indent=2, default=str)
+
+        st.download_button(
+            label="Download session JSON",
+            data=session_json,
+            file_name="curata_session_backup.json",
+            mime="application/json",
+            type="primary",
+        )
+
+    # ---------------------- Tab 6: Session JSON ---------------------- #
     with tabs[5]:
-        st.subheader("🧩 Session JSON (UI preferences only)")
+        st.subheader("🧾 Session JSON (live view)")
 
-        st.markdown("Upload a JSON file containing UI preferences (start_date, fx_rate, etc.).")
+        session_data = export_session_state_dict()
+        st.json(session_data)
 
-        uploaded_json = st.file_uploader("Upload UI preferences JSON", type=["json"])
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
 
-        if uploaded_json:
-            try:
-                data = json.load(uploaded_json)
-                apply_session_dict(data)
-                st.success("UI preferences restored. Rerunning…")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Invalid JSON: {e}")
+        st.markdown("### Restore session from uploaded JSON")
 
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
+        uploaded_session = st.file_uploader(
+            "Upload session JSON",
+            type=["json"],
+            key="session_restore_uploader",
+        )
 
-        st.subheader("Current UI preferences")
-        st.json(export_session_state_dict())
+        if uploaded_session is not None:
+            if st.button("Restore session from uploaded file"):
+                load_session_from_uploaded_json(uploaded_session)
 
-    # ============================================================
-    #  TAB 7 — SUMMARY CHARTS
-    # ============================================================
+    # ---------------------- Tab 7: Summary Charts ---------------------- #
     with tabs[6]:
-        st.subheader("📊 Summary Charts")
+        st.subheader("📊 Summary charts")
 
         df = st.session_state.get("daily_df", pd.DataFrame())
+        fx_rate = st.session_state.get("fx_rate", 0.0)
 
-        if df.empty:
-            st.info("No data yet.")
+        # ============================
+        # Chart 1 — Daily Sales & Profit ($)
+        # ============================
+        if not df.empty:
+            df_daily = df.copy()
+            df_daily["Date"] = pd.to_datetime(df_daily["Date"])
+
+            fig_daily = px.bar(
+                df_daily,
+                x="Date",
+                y=["Sales ($)", "Profit ($)"],
+                barmode="group",
+                title="Daily Sales & Profit ($)",
+                color_discrete_map={"Sales ($)": "#2563eb", "Profit ($)": "#16a34a"},
+            )
+
+            fig_daily.update_traces(texttemplate="%{y:.2f}", textposition="outside")
+            fig_daily.update_layout(
+                xaxis_title="Date",
+                yaxis_title="Amount ($)",
+                bargap=0.25,
+                height=450,
+            )
+
+            st.plotly_chart(fig_daily, width="stretch")
         else:
+            st.info("No data available to generate daily sales/profit chart.")
+
+        # ============================
+        # Chart 2 — Daily Profit After Ads (£)
+        # ============================
+        if not df.empty and fx_rate:
+            df_daily_gbp = df.copy()
+            df_daily_gbp["Profit After Ads (£)"] = (
+                df_daily_gbp["Profit After Ads ($)"] * fx_rate
+            )
+
+            fig2 = px.bar(
+                df_daily_gbp,
+                x="Date",
+                y="Profit After Ads (£)",
+                text="Profit After Ads (£)",
+                color_discrete_sequence=["#7c3aed"],
+            )
+
+            fig2.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+            fig2.update_layout(
+                title="Daily Profit After Ads (£)",
+                xaxis_title="Date",
+                yaxis_title="Profit After Ads (£)",
+                bargap=0.3,
+                height=450,
+            )
+
+            st.plotly_chart(fig2, width="stretch")
+        else:
+            st.info("No data available or FX rate missing for GBP chart.")
+
+        # ============================
+        # Chart 3 — Orders vs Visitors
+        # ============================
+        if not df.empty:
             df_chart = df.copy()
             df_chart["Date"] = pd.to_datetime(df_chart["Date"])
 
-            # Sales chart
-            st.markdown("### Sales ($) over time")
-            fig_sales = px.line(df_chart, x="Date", y="Sales ($)", markers=True)
-            st.plotly_chart(fig_sales, use_container_width=True)
+            st.markdown("### Orders vs Visitors")
 
-            # Profit chart
-            st.markdown("### Profit ($) over time")
-            fig_profit = px.line(df_chart, x="Date", y="Profit ($)", markers=True)
-            st.plotly_chart(fig_profit, use_container_width=True)
+            fig_orders_visitors = px.bar(
+                df_chart,
+                x="Date",
+                y=["Orders", "Visitors"],
+                barmode="group",
+                title="Orders vs Visitors",
+                color_discrete_sequence=["#2563eb", "#4b5563"],
+            )
 
-            # Profit After Ads chart
-            st.markdown("### Profit After Ads (£) over time")
-            fig_paa = px.line(df_chart, x="Date", y="Profit After Ads (£)", markers=True)
-            st.plotly_chart(fig_paa, use_container_width=True)
+            fig_orders_visitors.update_traces(
+                texttemplate="%{y}", textposition="outside"
+            )
 
-    # ============================================================
-    #  TAB 8 — ADMIN
-    # ============================================================
-    with tabs[7]:
-        st.subheader("🛠 Admin Tools")
+            fig_orders_visitors.update_layout(
+                xaxis_title="Date",
+                yaxis_title="Count",
+                bargap=0.25,
+                height=450,
+            )
 
-        st.markdown("### Withdrawals")
-        from curata_db import load_withdrawals, add_withdrawal
+            st.plotly_chart(fig_orders_visitors, width="stretch")
 
-        withdrawals = load_withdrawals()
+            # ============================
+            # Withdrawals Over Time
+            # ============================
+            st.subheader("💸 Withdrawals Over Time")
 
-        if withdrawals:
-            st.dataframe(pd.DataFrame(withdrawals), use_container_width=True)
-        else:
-            st.info("No withdrawals recorded.")
-
-        st.markdown("### Add new withdrawal")
-        w_date = st.date_input("Withdrawal date", value=date.today())
-        w_amount = st.number_input("Amount (£)", min_value=0.0, step=1.0)
-
-        if st.button("Add withdrawal"):
-            add_withdrawal(w_date, w_amount)
-            st.success("Withdrawal added.")
-            st.rerun()
-
-        st.markdown('<div style="border-bottom: 2px solid #d1d5db; margin: 1rem 0;"></div>', unsafe_allow_html=True)
-
-        st.markdown("### Save global UI state")
-        if st.button("Save UI preferences to Supabase"):
-            prefs = export_session_state_dict()
-            save_global_state(prefs)
-            st.success("Global UI state saved.")
-
-    # ============================================================
-    #  TAB 9 — MIGRATION (Old JSON → Supabase)
-    # ============================================================
-    with tabs[8]:
-        st.subheader("📦 Migration Tool (Old JSON → Supabase)")
-
-        st.markdown("Upload your old Curata session JSON to migrate it into Supabase.")
-
-        uploaded_old = st.file_uploader("Upload old session JSON", type=["json"])
-
-        if uploaded_old:
             try:
-                raw = json.load(uploaded_old)
-            except Exception as e:
-                st.error(f"Invalid JSON: {e}")
-                st.stop()
+                supabase = get_supabase()
+                withdrawals = (
+                    supabase.table("curata_withdrawals")
+                    .select("date, amount_gbp")
+                    .order("date", desc=False)
+                    .execute()
+                )
 
-            st.markdown("### Preview")
-            st.json(raw)
+                if withdrawals.data:
+                    df_w = pd.DataFrame(withdrawals.data)
+                    df_w["date"] = pd.to_datetime(df_w["date"])
 
-            if st.button("🚀 Migrate to Supabase"):
-                fx_rate = st.session_state.get("fx_rate", 0.0)
-
-                for date_key, day_info in raw.items():
-                    try:
-                        day_date = pd.to_datetime(date_key).date()
-                    except:
-                        continue
-
-                    ad_spend = float(day_info.get("ad_spend", 0.0))
-                    visitors = int(day_info.get("visitors", 1))
-                    orders_raw = day_info.get("orders", [])
-
-                    orders = []
-                    for o in orders_raw:
-                        if isinstance(o, dict):
-                            orders.append({
-                                "sales": float(o.get("sales", 0.0)),
-                                "profit": float(o.get("profit", 0.0)),
-                            })
-
-                    delete_daily_row(day_date)
-
-                    total_sales = sum(o["sales"] for o in orders)
-                    total_profit = sum(o["profit"] for o in orders)
-                    profit_after_ads = total_profit - ad_spend
-                    profit_after_ads_gbp = profit_after_ads * fx_rate
-                    percent_profit = (profit_after_ads / total_sales * 100) if total_sales > 0 else 0
-
-                    upsert_daily_row(
-                        day_date,
-                        ad_spend,
-                        visitors,
-                        len(orders),
-                        total_sales,
-                        total_profit,
-                        profit_after_ads,
-                        profit_after_ads_gbp,
-                        percent_profit,
+                    st.bar_chart(
+                        df_w.set_index("date")["amount_gbp"],
+                        width="stretch",
                     )
+                else:
+                    st.info("No withdrawals recorded yet.")
+            except Exception:
+                st.error("Could not load withdrawals.")
+    # ---------------------- Tab 8: Admin ---------------------- #
+    with tabs[7]:
+        st.header("Admin Tools")
 
-                    daily_row = get_daily_row(day_date)
-                    day_id = daily_row["id"]
+        supabase = get_supabase()
 
-                    for idx, o in enumerate(orders, start=1):
-                        upsert_order_row(day_id, idx, o["sales"], o["profit"])
+        # ---------------------- Withdraw KPI Section ---------------------- #
+        st.markdown("### 💸 Withdrawable Amount (minus Sellvia fees)")
 
-                st.success("Migration complete. Reloading…")
-                st.rerun()
+        profit_after_spend = st.session_state.get("profit_after_spend", 0.0)
 
-# END OF FILE
+        sellvia_fee = profit_after_spend * 0.07
+        net_withdrawable = profit_after_spend - sellvia_fee
+
+        st.markdown(
+            f"""
+            <div style="
+                margin-top: 0.5rem;
+                padding: 0.8rem 1rem;
+                background-color: #f3f4f6;
+                border-radius: 8px;
+                border: 1px solid #d1d5db;
+                font-weight: 600;
+                font-size: 1.05rem;
+                color: #111827;
+            ">
+                <div>💰 <strong>Total Profit After Ad Spend:</strong> £{profit_after_spend:,.2f}</div>
+                <div>🧾 <strong>Sellvia Fee (7%):</strong> £{sellvia_fee:,.2f}</div>
+                <div>✅ <strong>Net Withdrawable Amount:</strong> <span style="color:#2563eb;">£{net_withdrawable:,.2f}</span></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---------------------- Persist withdrawn amount ---------------------- #
+        persisted_withdrawn = 0.0
+        try:
+            row = (
+                supabase.table("curata_global_state")
+                .select("withdrawn_amount")
+                .eq("id", 1)
+                .single()
+                .execute()
+            )
+            persisted_withdrawn = row.data.get("withdrawn_amount", 0.0)
+        except Exception:
+            pass
+
+        withdrawn = st.number_input(
+            "Withdrawn amount (£)",
+            min_value=0.0,
+            step=1.0,
+            value=persisted_withdrawn,
+            key="withdrawn_amount",
+        )
+
+        try:
+            supabase.table("curata_global_state").update(
+                {"withdrawn_amount": withdrawn}
+            ).eq("id", 1).execute()
+        except Exception:
+            pass
+
+        remaining_profit = net_withdrawable - withdrawn
+
+        st.markdown(
+            f"""
+            <div style="
+                margin-top: 0.8rem;
+                padding: 0.8rem 1rem;
+                background-color: #ecfdf5;
+                border-radius: 8px;
+                border: 1px solid #a7f3d0;
+                font-weight: 600;
+                font-size: 1.1rem;
+                color: #065f46;
+            ">
+                Remaining Profit After Withdrawal:  
+                <span style="color:#059669;">£{remaining_profit:,.2f}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---------------------- Record Withdrawal Event ---------------------- #
+        st.markdown("### 📝 Record Withdrawal Event")
+
+        if st.button("Record Withdrawal"):
+            try:
+                supabase.table("curata_withdrawals").insert(
+                    {
+                        "date": date.today().isoformat(),
+                        "amount_gbp": withdrawn,
+                    }
+                ).execute()
+                st.success("Withdrawal recorded.")
+            except Exception as e:
+                st.error("Failed to record withdrawal.")
+
+        # ============================
+        # VERSION HISTORY
+        # ============================
+        st.subheader("📜 Version History")
+        st.caption("View the last 10 saved versions of the global state.")
+
+        try:
+            versions = (
+                supabase.table("curata_global_versions")
+                .select("version_id, created_at, saved_by, locked")
+                .order("created_at", desc=True)
+                .limit(10)
+                .execute()
+            )
+
+            for v in versions.data:
+                lock_status = "🔒 Locked" if v.get("locked") else "🔓 Unlocked"
+                st.markdown(
+                    f"- **Version {v['version_id']}** — {v['created_at']} by `{v['saved_by']}` — {lock_status}"
+                )
+        except Exception:
+            st.error("Failed to load version history.")
+
+        st.markdown("---")
+
+        # ============================
+        # AUDIT LOG
+        # ============================
+        st.subheader("🔍 Audit Log")
+        st.caption("See who saved what and when.")
+
+        try:
+            logs = (
+                supabase.table("curata_global_audit")
+                .select("timestamp, user_id, action")
+                .order("timestamp", desc=True)
+                .limit(10)
+                .execute()
+            )
+
+            for log in logs.data:
+                st.markdown(
+                    f"- `{log['user_id']}` performed **{log['action']}** at {log['timestamp']}"
+                )
+        except Exception:
+            st.error("Failed to load audit log.")
+
+        st.markdown("---")
+
+        # ============================
+        # RESTORE LATEST BACKUP
+        # ============================
+        st.subheader("🧩 Restore Latest Backup")
+        st.caption("Restore the most recent JSON backup from Supabase Storage.")
+
+        if st.button("Restore Latest Backup"):
+            try:
+                files = supabase.storage.from_("curata_backups").list()
+
+                if files:
+                    sorted_files = sorted(files, key=lambda f: f["name"], reverse=True)
+                    latest = sorted_files[0]["name"]
+
+                    content = supabase.storage.from_("curata_backups").download(latest)
+                    restored = json.loads(content)
+
+                    apply_session_dict(restored)
+                    st.session_state["restored_from_backup"] = latest
+                    st.success(f"Restored from backup: {latest}")
+                else:
+                    st.warning("No backups found.")
+            except Exception:
+                st.error("Restore failed.")
+
+        st.markdown("---")
+
+        # ============================
+        # RESTORE FROM SPECIFIC VERSION
+        # ============================
+        st.subheader("🗂 Restore From Version")
+        st.caption("Pick a version and restore its state.")
+
+        try:
+            version_list = (
+                supabase.table("curata_global_versions")
+                .select("version_id, created_at, locked")
+                .order("created_at", desc=True)
+                .limit(20)
+                .execute()
+            )
+
+            version_options = {
+                f"Version {v['version_id']} — {v['created_at']} {'🔒' if v.get('locked') else ''}": v[
+                    "version_id"
+                ]
+                for v in version_list.data
+            }
+
+            selected_version = st.selectbox(
+                "Choose version to restore:", list(version_options.keys())
+            )
+
+            if st.button("Restore Selected Version"):
+                version_id = version_options[selected_version]
+
+                version_data = (
+                    supabase.table("curata_global_versions")
+                    .select("session_json")
+                    .eq("version_id", version_id)
+                    .single()
+                    .execute()
+                )
+
+                apply_session_dict(version_data.data["session_json"])
+                st.success(f"Restored Version {version_id}")
+        except Exception:
+            st.error("Failed to load versions.")
+
+        st.markdown("---")
+
+        # ============================
+        # LOCK VERSION
+        # ============================
+        st.subheader("🔒 Lock Version")
+        st.caption("Lock a version to prevent overwrites or deletion.")
+
+        try:
+            lock_options = {
+                f"Version {v['version_id']} — {v['created_at']}": v["version_id"]
+                for v in version_list.data
+                if not v.get("locked")
+            }
+
+            version_to_lock = st.selectbox(
+                "Choose version to lock:", list(lock_options.keys())
+            )
+
+            if st.button("Lock Selected Version"):
+                version_id = lock_options[version_to_lock]
+
+                supabase.table("curata_global_versions").update({"locked": True}).eq(
+                    "version_id", version_id
+                ).execute()
+
+                st.success(f"Version {version_id} is now locked.")
+        except Exception:
+            st.error("Failed to lock version.")
+
+        st.markdown("---")
+
+        # ============================
+        # DOWNLOAD LATEST BACKUP
+        # ============================
+        st.subheader("⬇️ Download Latest Backup")
+        st.caption("Download the most recent JSON backup file.")
+
+        if st.button("Download Backup"):
+            try:
+                files = supabase.storage.from_("curata_backups").list()
+
+                if files:
+                    sorted_files = sorted(files, key=lambda f: f["name"], reverse=True)
+                    latest = sorted_files[0]["name"]
+
+                    content = supabase.storage.from_("curata_backups").download(latest)
+
+                    st.download_button(
+                        label="Download Backup JSON",
+                        data=content,
+                        file_name=latest,
+                        mime="application/json",
+                    )
+                else:
+                    st.warning("No backups found.")
+            except Exception:
+                st.error("Download failed.")
+
+    # ---------------------- Auto-save to Supabase ---------------------- #
+    if st.session_state.get("authenticated"):
+        session_dict = export_session_state_dict()
+        save_global_state(session_dict)
+        st.sidebar.success("✅ Global state saved.")
+
+# ============================================================
+#  END OF FILE — Curata Dashboard (Supabase-integrated)
+# ============================================================
