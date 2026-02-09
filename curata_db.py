@@ -46,7 +46,12 @@ def upsert_daily_row(
         "profit_percent": profit_percent,
     }
 
-    return supabase.table("curata_daily_data").upsert(payload).execute()
+    return (
+        supabase
+        .table("curata_daily_data")
+        .upsert(payload, on_conflict="date")
+        .execute()
+    )
 
 
 def get_daily_row(day_date: date) -> Optional[Dict]:
