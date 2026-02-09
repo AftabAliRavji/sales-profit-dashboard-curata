@@ -159,3 +159,29 @@ def delete_single_order(day_id: int, order_index: int):
         .eq("order_index", order_index)
         .execute()
     )
+
+def load_withdrawals():
+    supabase = get_supabase()
+    result = (
+        supabase
+        .table("curata_withdrawals")
+        .select("*")
+        .order("date", desc=False)
+        .execute()
+    )
+    return result.data or []
+
+
+def add_withdrawal(date_value, amount_gbp):
+    supabase = get_supabase()
+    payload = {
+        "date": date_value.isoformat(),
+        "amount_gbp": float(amount_gbp),
+    }
+    return (
+        supabase
+        .table("curata_withdrawals")
+        .insert(payload)
+        .execute()
+    )
+
