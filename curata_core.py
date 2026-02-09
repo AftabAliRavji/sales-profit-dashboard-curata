@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import date, timedelta, datetime, timezone
 import json
 import requests
+import plotly.express as px
+
 
 from curata_db import (
     upsert_daily_row,
