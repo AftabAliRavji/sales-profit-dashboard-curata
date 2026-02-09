@@ -115,6 +115,62 @@ select * from curata_global_audit;
 select * from curata_global_versions;
 select * from curata_withdrawals;
 
+---new tables for complete store and retrieval architecture----
+create table if not exists public.curata_daily_data (
+    id bigint generated always as identity primary key,
+    date date not null,
+    ad_spend_usd numeric default 0,
+    visitors integer default 0,
+    orders integer default 0,
+    sales_usd numeric default 0,
+    profit_usd numeric default 0,
+    profit_after_ads_usd numeric default 0,
+    profit_after_ads_gbp numeric default 0,
+    profit_percent numeric default 0,
+    created_at timestamp with time zone default timezone('utc', now())
+);
+
+-- Ensure one row per date (per user in future)
+create unique index if not exists idx_curata_daily_data_date
+on public.curata_daily_data (date);
+
+create table if not exists public.curata_daily_orders (
+    id bigint generated always as identity primary key,
+    day_id bigint not null references public.curata_daily_data(id) on delete cascade,
+    order_index integer not null,
+    sales_usd numeric default 0,
+    profit_usd numeric default 0,
+    created_at timestamp with time zone default timezone('utc', now())
+);
+
+-- Ensure each order_index is unique per day
+create unique index if not exists idx_curata_daily_orders_day_order
+on public.curata_daily_orders (day_id, order_index);
+
+drop table if exists public.curata_sessions cascade;
+
+--amendments to tables
+alter table public.curata_daily_data
+add column updated_at timestamp with time zone default now();
+
+alter table public.curata_daily_orders
+add column updated_at timestamp with time zone default now();
+
+create index if not exists idx_daily_data_created_at
+on public.curata_daily_data (created_at);
+
+create index if not exists idx_daily_orders_day_id
+on public.curata_daily_orders (day_id);
+
+alter table public.curata_daily_orders
+add constraint chk_order_index check (order_index >= 1);
+
+alter table public.curata_daily_data
+add constraint chk_visitors check (visitors >= 0);
+
+alter table public.curata_daily_data
+add constraint chk_ad_spend check (ad_spend_usd >= 0);
+
 ## under storage buckets
 Files
 Buckets
