@@ -587,6 +587,49 @@ def main_app():
         st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
         st.subheader("📅 Daily overview (table)")
         st.dataframe(df, width="stretch")
+
+        # ---------------------- SAVE TO SUPABASE ---------------------- #
+        st.markdown('<div class="curata-divider"></div>', unsafe_allow_html=True)
+        st.subheader("💾 Save daily data to Supabase")
+
+        if st.button("Save All Days"):
+            from curata_db import upsert_daily_row, upsert_order_row
+
+            try:
+                for _, row in df.iterrows():
+                    day_date = row["Date"]
+
+                    # 1. Save daily summary row
+                    upsert_daily_row(
+                        date=day_date.isoformat(),
+                        sales_usd=float(row["Sales ($)"]),
+                        profit_usd=float(row["Profit ($)"]),
+                        ad_spend_usd=float(row["Ad Spend ($)"]),
+                        profit_after_ads_usd=float(row["Profit After Ads ($)"]),
+                        profit_after_ads_gbp=float(row["Profit After Ads (£)"]),
+                        orders=int(row["Orders"]),
+                        visitors=int(row["Visitors"]),
+                    )
+
+                    # 2. Save each order for that day
+                    day_index = (day_date - start_date).days
+                    num_orders = st.session_state.get(f"orders_day_{day_index}", 1)
+
+                    for order_index in range(1, num_orders + 1):
+                        sales_key = f"day_{day_index}_order_{order_index}_sales"
+                        profit_key = f"day_{day_index}_order_{order_index}_profit"
+
+                        upsert_order_row(
+                            date=day_date.isoformat(),
+                            order_index=order_index,
+                            sales=float(st.session_state.get(sales_key, 0.0)),
+                            profit=float(st.session_state.get(profit_key, 0.0)),
+                        )
+
+                st.success("All daily data saved to Supabase.")
+            except Exception as e:
+                st.error(f"Failed to save: {e}")
+
     # ---------------------- Tab 2: Bulk Import ---------------------- #
     with tabs[1]:
         st.subheader("📥 Bulk import daily data (JSON or CSV)")
