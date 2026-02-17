@@ -19,7 +19,7 @@ def get_supabase():
 # ============================================================
 
 def upsert_daily_row(
-    day_date: date,
+    date: str,
     ad_spend_usd: float,
     visitors: int,
     orders: int,
@@ -29,13 +29,10 @@ def upsert_daily_row(
     profit_after_ads_gbp: float,
     profit_percent: float,
 ):
-    """
-    Insert or update a single daily row in curata_daily_data.
-    """
     supabase = get_supabase()
 
     payload = {
-        "date": day_date.isoformat(),
+        "date": date,
         "ad_spend_usd": ad_spend_usd,
         "visitors": visitors,
         "orders": orders,
@@ -47,11 +44,11 @@ def upsert_daily_row(
     }
 
     return (
-        supabase
-        .table("curata_daily_data")
+        supabase.table("curata_daily_data")
         .upsert(payload, on_conflict="date")
         .execute()
     )
+
 
 
 def get_daily_row(day_date: date) -> Optional[Dict]:
@@ -100,21 +97,27 @@ def delete_daily_row(day_date: date):
 #  ORDER HELPERS
 # ============================================================
 
-def upsert_order_row(day_id: int, order_index: int, sales_usd: float, profit_usd: float):
+def upsert_order_row(
+    date: str,
+    order_index: int,
+    sales_usd: float,
+    profit_usd: float,
+):
     supabase = get_supabase()
+
     payload = {
-        "day_id": day_id,
+        "date": date,
         "order_index": order_index,
         "sales_usd": sales_usd,
         "profit_usd": profit_usd,
     }
 
     return (
-        supabase
-        .table("curata_daily_orders")
-        .upsert(payload, on_conflict="day_id,order_index")
+        supabase.table("curata_daily_orders")
+        .upsert(payload, on_conflict="date,order_index")
         .execute()
     )
+
 
 
 

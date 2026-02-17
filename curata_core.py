@@ -671,22 +671,23 @@ def main_app():
 
             try:
                 for _, row in df.iterrows():
-                    day_date = row["Date"]
+                    day_date = row["Date"].isoformat()
 
                     # 1. Save daily summary row
                     upsert_daily_row(
-                        date=day_date.isoformat(),
+                        date=day_date,
+                        ad_spend_usd=float(row["Ad Spend ($)"]),
+                        visitors=int(row["Visitors"]),
+                        orders=int(row["Orders"]),
                         sales_usd=float(row["Sales ($)"]),
                         profit_usd=float(row["Profit ($)"]),
-                        ad_spend_usd=float(row["Ad Spend ($)"]),
                         profit_after_ads_usd=float(row["Profit After Ads ($)"]),
                         profit_after_ads_gbp=float(row["Profit After Ads (£)"]),
-                        orders=int(row["Orders"]),
-                        visitors=int(row["Visitors"]),
+                        profit_percent=float(row["Profit %"]),
                     )
 
-                    # 2. Save each order for that day
-                    day_index = (day_date - start_date).days
+                    # 2. Save each order
+                    day_index = (row["Date"] - start_date).days
                     num_orders = st.session_state.get(f"orders_day_{day_index}", 1)
 
                     for order_index in range(1, num_orders + 1):
@@ -694,10 +695,10 @@ def main_app():
                         profit_key = f"day_{day_index}_order_{order_index}_profit"
 
                         upsert_order_row(
-                            date=day_date.isoformat(),
+                            date=day_date,
                             order_index=order_index,
-                            sales=float(st.session_state.get(sales_key, 0.0)),
-                            profit=float(st.session_state.get(profit_key, 0.0)),
+                            sales_usd=float(st.session_state.get(sales_key, 0.0)),
+                            profit_usd=float(st.session_state.get(profit_key, 0.0)),
                         )
 
                 st.success("All daily data saved to Supabase.")
