@@ -282,8 +282,8 @@ def load_daily_data_from_supabase():
         sales_key = f"day_{day_index}_order_{o['order_index']}_sales"
         profit_key = f"day_{day_index}_order_{o['order_index']}_profit"
 
-        st.session_state[sales_key] = float(o["sales"])
-        st.session_state[profit_key] = float(o["profit"])
+        st.session_state[sales_key] = float(o["sales_usd"])
+        st.session_state[profit_key] = float(o["profit_usd"])
 
     return True
 
