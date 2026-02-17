@@ -232,6 +232,61 @@ def populate_from_structured_data(day_data_list):
     st.session_state["import_sync"] = True
 
     st.success("Bulk data imported successfully.")
+
+def load_daily_data_from_supabase():
+    """
+    Loads daily rows + orders from Supabase into st.session_state.
+    Returns True if data was loaded, False if no data exists.
+    """
+    supabase = get_supabase()
+
+    # 1. Load daily rows
+    daily = (
+        supabase.table("curata_daily_data")
+        .select("*")
+        .order("date", desc=False)
+        .execute()
+    )
+
+    if not daily.data:
+        return False  # No data in DB → clean start
+
+    rows = daily.data
+
+    # Set number of days
+    st.session_state["days"] = len(rows)
+
+    # Set start date
+    st.session_state["start_date"] = pd.to_datetime(rows[0]["date"]).date()
+
+    # Visitors per day (assume consistent)
+    st.session_state["visitors_per_day"] = rows[0].get("visitors", 1)
+
+    # Load daily values
+    for idx, r in enumerate(rows):
+        st.session_state[f"ad_spend_day_{idx}"] = float(r["ad_spend_usd"])
+        st.session_state[f"orders_day_{idx}"] = int(r["orders"])
+
+    # 2. Load orders
+    orders = (
+        supabase.table("curata_daily_orders")
+        .select("*")
+        .order("order_index", desc=False)
+        .execute()
+    )
+
+    for o in orders.data:
+        day_date = pd.to_datetime(o["date"]).date()
+        day_index = (day_date - st.session_state["start_date"]).days
+
+        sales_key = f"day_{day_index}_order_{o['order_index']}_sales"
+        profit_key = f"day_{day_index}_order_{o['order_index']}_profit"
+
+        st.session_state[sales_key] = float(o["sales"])
+        st.session_state[profit_key] = float(o["profit"])
+
+    return True
+
 # ============================================================
 #  Main app — header, sidebar, tabs, and Tab 1 (Inputs)
 # ============================================================
@@ -417,6 +472,25 @@ def main_app():
     with tabs[0]:
         st.subheader("📥 Inputs")
 
+        daily_rows = []
+
+        # ---------------------- AUTO-LOAD FROM SUPABASE (Option C2) ---------------------- #
+        if "loaded_from_supabase" not in st.session_state:
+            loaded = load_daily_data_from_supabase()
+            st.session_state["loaded_from_supabase"] = True
+
+            if not loaded:
+                # No data in DB → clean start (Option C2)
+                st.session_state["days"] = 0
+                st.session_state["start_date"] = date.today()
+
+        if st.button("🔄 Load from Supabase"):
+            if load_daily_data_from_supabase():
+                st.success("Loaded data from Supabase.")
+                st.rerun()
+            else:
+                st.warning("No data found in Supabase.")
+
         if st.session_state.get("import_success"):
             st.success("Import complete! 🎉")
             st.session_state["import_success"] = False
@@ -426,7 +500,7 @@ def main_app():
         with col_a:
             days = st.number_input(
                 "Number of days",
-                min_value=1,
+                min_value=0,
                 max_value=31,
                 step=1,
                 key="days",
